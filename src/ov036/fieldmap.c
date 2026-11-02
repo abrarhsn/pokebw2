@@ -1113,6 +1113,15 @@ BOOL Field_ShouldSwapZone(Field *field) {
     return FALSE;
 }
 
+// WORLD: the lights of the area of a zone
+static u16 Field_GetAreaLightsID(HeapID heapId, u16 zoneId, u32 season) {
+    AreaData *area = AreaData_Create(HEAPID_TAIL(heapId), ZoneData_GetAreaID(zoneId), season);
+    u16 lightsId = AreaData_GetLightsID(area);
+
+    AreaData_Free(area);
+    return lightsId;
+}
+
 void Field_SwapZoneByMatrix(Field *field) {
     ZoneSpawnInfo *zoneState = &field->playerZoneState;
     GameData *gameData = GSYS_GetGameData(field->gameSystem);
@@ -1126,6 +1135,14 @@ void Field_SwapZoneByMatrix(Field *field) {
     EncountSystem_CancelPhenomenon(field->encountSystem);
     GetPlayerZoneStateWPos(zoneState, &pos);
     zoneId = GetZoneIDAtMatrixXZWorld(matrix, pos.x, pos.z);
+    // WORLD: another area's lights, which fade in over a second, as a weather's
+    {
+        u16 lightsId = Field_GetAreaLightsID(field->heapId, zoneId, GameData_GetSeason(gameData));
+
+        if (lightsId != Field_GetAreaLightsID(field->heapId, zoneState->zoneId, GameData_GetSeason(gameData))) {
+            FieldLight_ChangeData(field->lightSystem, ARCID_LIGHTS_FIELD, lightsId, 60);
+        }
+    }
     MI_SetMainMemoryPriority(MI_PROCESSOR_ARM9);
     DeleteAllActors(actorSystem);
     EventData_Reset(eventData);
@@ -1566,6 +1583,7 @@ void SetupLoadZoneMapTypeData(u16 zoneId, AreaData *area, FieldG3DMapperConfig *
         config->chunkDatIds = GetMapMatrixChunkIDs(matrix);
     }
     config->matrix = MAP_CONFIGS[type].useMapMatrix ? matrix : NULL;
+    config->areaId = ZoneData_GetAreaID(zoneId);
     config->isSharedTexResource = TRUE;
     config->textures.arcId = ARCID_AREA_MAP_TEX;
     config->textures.fileId = AreaData_GetTexSetID(area);

@@ -66,6 +66,8 @@ struct FieldG3DMapperConfig {
     u8 renderPhase1MaxChunkCount;
     // WORLD: the matrix whose cells have each its zone, NULL for a map that has one area
     MapMatrix *matrix;
+    // WORLD: the area of the zone the field was opened for
+    u16 areaId;
 };
 
 // The terrain layers at a position, which the mapper gathers from its chunks
@@ -133,6 +135,9 @@ struct FieldG3DMapper {
     u32 altTexSetId;
     u32 altTexArcId;
     G3DResource *altTextures;
+    u16 mainAreaId;
+    u16 altAreaId;
+    FieldPropSystem *altProps;
 };
 
 FieldG3DMapper *FieldG3DMapper_Create(HeapID heapId, u16 season);
