@@ -320,7 +320,12 @@ u8 FieldEncount_RndCheckNPoke(EncountManager *manager, u32 zoneId) {
 }
 
 void FieldEncount_CreateWildPkm(PartyPkm *pkm, const EncountManager *manager, WildPkmParam *param) {
-    PersonalData *personal = PML_PersonalLoad(param->species, param->form, 4);
+    PersonalData *personal;
+
+    // SANDBOX: every wild encounter is a Bidoof
+    param->species = SPECIES_BIDOOF;
+    param->form = 0;
+    personal = PML_PersonalLoad(param->species, param->form, 4);
     u32 rolls = 1;
     u32 pid;
     u32 i;
@@ -359,7 +364,7 @@ void FieldEncount_CreateWildPkm(PartyPkm *pkm, const EncountManager *manager, Wi
 }
 
 void FieldEncount_GenRoamingPkm(PartyPkm *pkm, const EncountManager *manager, const RoamingPkm *roamingPkm) {
-    u16 species = EncountSave_GetRoamingPkmParam(roamingPkm, ROAMING_PKM_PARAM_SPECIES);
+    u16 species = SPECIES_BIDOOF; // SANDBOX
     u8 level = EncountSave_GetRoamingPkmParam(roamingPkm, ROAMING_PKM_PARAM_LEVEL);
     u32 ivs = EncountSave_GetRoamingPkmParam(roamingPkm, ROAMING_PKM_PARAM_IVS);
 
@@ -376,11 +381,11 @@ void makeNPokeFromData(PartyPkm *pkm, u8 index) {
 }
 
 void createNPkm(PartyPkm *pkm, const NPokeSpec *spec) {
-    u32 pid = makeSpecialPID(2, spec->species, 0, spec->sex, spec->ability % 2, FALSE);
+    u32 pid = makeSpecialPID(2, SPECIES_BIDOOF, 0, spec->sex, spec->ability % 2, FALSE); // SANDBOX
 
-    PokeParty_CreatePkm(pkm, spec->species, spec->level, 2, 0x3def7bde, pid);
+    PokeParty_CreatePkm(pkm, SPECIES_BIDOOF, spec->level, 2, 0x3def7bde, pid);
     if (spec->ability > 1) {
-        PokeParty_SetHiddenAbil(pkm, spec->species, 0);
+        PokeParty_SetHiddenAbil(pkm, SPECIES_BIDOOF, 0);
     }
     PokeParty_SetParam(pkm, PKM_PARAM_NATURE, spec->nature);
     PokeParty_SetParam(pkm, PKM_PARAM_HAPPINESS, 0xff);

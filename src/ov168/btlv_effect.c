@@ -6,6 +6,7 @@
 #include "battle/btlv_effect.h"
 #include "types.h"
 #include "battle/btl_main.h"
+#include "battle/yes_moves.h"
 #include "battle/btl_pokeparam.h"
 #include "battle/btl_setup.h"
 #include "battle/btlv_b_gauge.h"
@@ -20,12 +21,14 @@
 #include "battle/btlv_timer.h"
 #include "constants/arc.h"
 #include "constants/battle.h"
+#include "constants/moves.h"
 #include "constants/trainer_classes.h"
 #include "field/field_light_status.h"
 #include "gfl/arc.h"
 #include "gfl/bg_sys.h"
 #include "gfl/g3d.h"
 #include "gfl/heap.h"
+#include "gfl/heapsys.h"
 #include "gfl/key.h"
 #include "gfl/particle.h"
 #include "gfl/random.h"
@@ -58,7 +61,32 @@ struct BtlvEffectSetup {
 
 typedef void (*BtlvEffectTaskCallback)(TCB *task);
 
-#define BTLV_EFFECT_TASK_MAX 32
+// SANDBOX: 32 in the game, which a burst's VMs would overflow
+#define BTLV_EFFECT_TASK_MAX 512
+
+// SANDBOX: the move Yes plays the animations of YES_MOVES all at once, each script in its own VM and task group. They
+// share a heap of their own, taken from the user heap for as long as they run, and the camera stays where it is
+#define BURST_HEAP_ID 192
+#define BURST_HEAP_KEPT 0x10000
+#define BURST_HEAP_MAX 0x100000
+#define BURST_HEAP_MIN 0x20000
+#define BURST_SCRIPT_FREE 0x8000
+#define BURST_LOW_FREE 0x4000
+#define BURST_TASK_GROUP_FIRST 16
+#define BURST_MAX_FRAMES 1800
+// SANDBOX: the most scripts a burst starts, YES_MOVE_COUNT for all
+#define BURST_SCRIPT_LIMIT 255
+
+typedef struct {
+    VM *vms[YES_MOVE_COUNT];
+    u32 frames;
+    u8 attackerPos;
+    u8 targetPos;
+    BOOL ownHeap;
+    HeapID heapId;
+    NNSGfdFrmTexVramState texState;
+    NNSGfdFrmPlttVramState plttState;
+} BtlvEffectBurst;
 
 // The battle effect work, 0x254 bytes, allocated by the init and pointed to by sBtlvEffect
 struct BtlvEffect {
@@ -97,6 +125,7 @@ struct BtlvEffect {
     s32 idleEffectTimer; // 0x248
     s32 idleEffectWait;  // 0x24c
     s32 idleEffectLast;  // 0x250
+    BtlvEffectBurst *burst; // SANDBOX: NULL unless one runs
 }; // 0x254
 
 // An entry of file 0 of archive 151, by the field environment's bgType; the terrain picks the field and the stage
@@ -164,6 +193,9 @@ enum {
 static u32 BtlvEffect_GetStudioMode(BtlMainModule *mainModule);
 static u32 BtlvEffect_GetStudioParam(BtlMainModule *mainModule);
 static void BtlvEffect_Stop(void);
+static void BtlvEffect_StartBurst(const BtlvMoveEffectParam *param);
+static BOOL BtlvEffect_UpdateBurst(void);
+static void BtlvEffect_EndBurst(void);
 static void BtlvEffect_GetZoomCameraPosTarget(u32 viewPos, VecFx32 *camPos, VecFx32 *camTarget);
 static int BtlvEffect_FindTask(TCB *tcb);
 static int BtlvEffect_GetFreeTaskSlot(void);
@@ -357,6 +389,9 @@ void BtlvEffect_Exit(void) {
         BtlvGauge_Delete(sBtlvEffect->gauge);
         BtlvTimer_Delete(sBtlvEffect->timer);
         BtlvBg_Delete(sBtlvEffect->bg);
+        if (sBtlvEffect->burst != NULL) {
+            BtlvEffect_EndBurst();
+        }
         Particle_Free();
         BtlvEffvm_Delete(sBtlvEffect->effvm);
         GFL_TCBRemove(sBtlvEffect->vblankTask);
@@ -369,7 +404,11 @@ void BtlvEffect_Exit(void) {
 
 void BtlvEffect_Main(void) {
     if (sBtlvEffect != NULL) {
-        sBtlvEffect->executing = BtlvEffvm_Main(sBtlvEffect->effvm);
+        if (sBtlvEffect->burst != NULL) {
+            sBtlvEffect->executing = BtlvEffect_UpdateBurst();
+        } else {
+            sBtlvEffect->executing = BtlvEffvm_Main(sBtlvEffect->effvm);
+        }
         BtlvEffect_UpdateIdleEffect();
         GFL_TCBMgrUpdate(sBtlvEffect->tcbManager);
         BtlvMcss_Main(sBtlvEffect->mcss);
@@ -444,6 +483,10 @@ void BtlvEffect_StartMove(const BtlvMoveEffectParam *param) {
     if (!BtlvEffect_IsBusy()) {
         BtlvEffvmParam vmParam;
 
+        if (param->move == MOVE_YES) {
+            BtlvEffect_StartBurst(param);
+            return;
+        }
         BtlvEffvmParam_Clear(&vmParam);
         vmParam.target = param->target;
         vmParam.variant = param->variant;
@@ -463,6 +506,108 @@ void BtlvEffect_StartMove(const BtlvMoveEffectParam *param) {
         queued->param->unk2 = param->unk0D;
         BtlvEffect_AddTask(GFL_TCBMgrAddTask(sBtlvEffect->tcbManager, BtlvEffect_DelayedMoveTask, queued, 0),
                            BtlvEffect_DelayedMoveTaskEnd, 0);
+    }
+}
+
+static void BtlvEffect_StartBurst(const BtlvMoveEffectParam *param) {
+    BtlvEffectBurst *burst = GFL_HeapAllocate(sBtlvEffect->heapId, sizeof(BtlvEffectBurst), TRUE, "btlv_effect.c", 0x2dc);
+    u32 size = GFL_HeapGetHighestAllocatableSize(HEAPID_USER);
+    u32 i;
+
+    burst->heapId = sBtlvEffect->heapId;
+    if (size > BURST_HEAP_KEPT + BURST_HEAP_MIN) {
+        size -= BURST_HEAP_KEPT;
+        if (size > BURST_HEAP_MAX) {
+            size = BURST_HEAP_MAX;
+        }
+        if (GFL_HeapAddChild(HEAPID_USER, BURST_HEAP_ID, size)) {
+            burst->heapId = BURST_HEAP_ID;
+            burst->ownHeap = TRUE;
+        }
+    }
+    burst->attackerPos = param->attackerPos;
+    burst->targetPos = param->targetPos;
+    if (GFL_G3DSysUsesFrmTexVramMgr() == TRUE) {
+        NNS_GfdGetFrmTexVramState(&burst->texState);
+    }
+    if (GFL_G3DSysUsesFrmPlttVramMgr() == TRUE) {
+        NNS_GfdGetFrmPlttVramState(&burst->plttState);
+    }
+    BtlvCamera_SetLocked(sBtlvEffect->camera, TRUE);
+    sBtlvEffect->burst = burst;
+    sBtlvEffect->executing = TRUE;
+    // Every script starts in this frame, while the heap has room for it
+    for (i = 0; i < YES_MOVE_COUNT && i < BURST_SCRIPT_LIMIT; i++) {
+        VM *vm;
+        BtlvEffvmParam vmParam;
+        u16 move = YES_MOVES[i];
+
+        if (GFL_HeapGetHighestAllocatableSize(burst->heapId) < BURST_SCRIPT_FREE) {
+            break;
+        }
+        vm = BtlvEffvm_Create(sBtlvEffect->tcbManager, burst->heapId);
+        BtlvEffvm_SetBurst(vm, BURST_TASK_GROUP_FIRST + i);
+        BtlvEffvmParam_Clear(&vmParam);
+        vmParam.target = PML_MoveGetParam(move, MOVE_PARAM_TARGET);
+        BtlvEffvm_Start(vm, burst->attackerPos, burst->targetPos, move, &vmParam);
+        burst->vms[i] = vm;
+    }
+}
+
+// Runs each VM, and returns whether the burst goes on
+static BOOL BtlvEffect_UpdateBurst(void) {
+    BtlvEffectBurst *burst = sBtlvEffect->burst;
+    BOOL running = FALSE;
+    u32 i;
+
+    for (i = 0; i < YES_MOVE_COUNT; i++) {
+        if (burst->vms[i] != NULL) {
+            if (BtlvEffvm_Main(burst->vms[i])) {
+                running = TRUE;
+            } else {
+                BtlvEffvm_Delete(burst->vms[i]);
+                burst->vms[i] = NULL;
+            }
+        }
+    }
+    burst->frames++;
+    // A script may wait for something the others keep from ending, and an allocation that fails ends the game
+    if (running && burst->frames < BURST_MAX_FRAMES && GFL_HeapGetHighestAllocatableSize(burst->heapId) >= BURST_LOW_FREE) {
+        return TRUE;
+    }
+    BtlvEffect_EndBurst();
+    return FALSE;
+}
+
+// Ends the scripts, and gives back what they shared, which each one's end only did for as long as the next one left it
+// alone
+static void BtlvEffect_EndBurst(void) {
+    BtlvEffectBurst *burst = sBtlvEffect->burst;
+    BOOL ownHeap;
+    u32 i;
+
+    for (i = 0; i < YES_MOVE_COUNT; i++) {
+        if (burst->vms[i] != NULL) {
+            BtlvEffvm_Delete(burst->vms[i]);
+        }
+    }
+    BtlvEffect_EndTaskGroup(1);
+    if (GFL_G3DSysUsesFrmTexVramMgr() == TRUE) {
+        NNS_GfdSetFrmTexVramState(&burst->texState);
+    }
+    if (GFL_G3DSysUsesFrmPlttVramMgr() == TRUE) {
+        NNS_GfdSetFrmPlttVramState(&burst->plttState);
+    }
+    BtlvEffect_SetGaugeDrawEnableBySide(1, 2);
+    GFL_BGSysSetBGEnabled(1, TRUE);
+    GFL_BGSysSetBGEnabled(2, TRUE);
+    GFL_BGSysSetBGEnabled(3, TRUE);
+    BtlvCamera_SetLocked(sBtlvEffect->camera, FALSE);
+    sBtlvEffect->burst = NULL;
+    ownHeap = burst->ownHeap;
+    GFL_HeapFree(burst);
+    if (ownHeap) {
+        GFL_HeapDelete(BURST_HEAP_ID);
     }
 }
 

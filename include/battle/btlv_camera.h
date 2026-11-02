@@ -13,6 +13,7 @@
 BtlvCamera *BtlvCamera_Create(TCBManager *tcbManager, HeapID heapId);
 void BtlvCamera_Delete(BtlvCamera *camera);
 void BtlvCamera_Main(BtlvCamera *camera);
+void BtlvCamera_SetLocked(BtlvCamera *camera, BOOL locked);
 void BtlvCamera_SetPosTarget(BtlvCamera *camera, const VecFx32 *pos, const VecFx32 *target);
 void BtlvCamera_Rotate(BtlvCamera *camera, s32 pitch, s32 yaw);
 void BtlvCamera_MoveTo(BtlvCamera *camera, const VecFx32 *pos, const VecFx32 *target, int frames, int wait,

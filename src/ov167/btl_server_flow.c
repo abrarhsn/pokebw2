@@ -2063,6 +2063,26 @@ BOOL ServerControl_ExecuteMove(BtlServerFlow *flow, BattleMon *mon, u16 move, Bt
     BtlMonSet_Clear(flow->damagedMons);
     reserved = SCQUE_RESERVE_Pos(flow->queue, SC_MOVE_ANIM);
     BattleMoveEffectState_SetTargets(flow->moveEffect, flow, mon, targets);
+    if (move == MOVE_YES) {
+        // SANDBOX: Yes is a one-hit KO that no check stops, after the animation of every move
+        BattleMon *target;
+        u32 i;
+
+        BtlMonSet_RemoveFainted(targets);
+        flow->moveEffect->enabled = TRUE;
+        ServerControl_PutMoveAnimation(flow, move, flow->moveEffect, reserved);
+        for (i = 0; (target = BtlMonSet_Get(targets, i)) != NULL; i++) {
+            if (!IsFainted(target)) {
+                ServerControl_OHKOSuccess(flow, target, flow->moveParam, 1);
+                ServerControl_CheckFainted(flow, target);
+            }
+        }
+        BtlMoveRec_MarkLastSucceeded(&flow->moveRec);
+        ServerControl_MoveExecuteEffective(flow, monId, move);
+        ServerControl_MoveExecuteEnd(flow, monId, move);
+        ServerControl_CheckFainted(flow, mon);
+        return TRUE;
+    }
     state = PushState(&flow->actionState, 0x10b8);
     result = ServerEvent_MoveExecuteStart(flow, mon, move, targets);
     PopState(&flow->actionState, state, 0x10ba);

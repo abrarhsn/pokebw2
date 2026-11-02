@@ -1,11 +1,11 @@
-// Move 560, past the last move: member 560 of a/0/6/5
+// Move Yes (SANDBOX): the script of the old member 560, played when another move calls Yes
 
 #include "asm/btlv_effvm.inc"
 
     ScriptHeader 1
-    ScriptVariant Move560
+    ScriptVariant MoveYes
 
-Move560:
+MoveYes:
     CameraMovePreset 1, 11, 16, 0, 8
     Wait EFFVM_WAIT_ALL
     ParticleLoad 165

@@ -21,6 +21,7 @@
 #include "gfl/g3d.h"
 #include "gfl/graphics.h"
 #include "gfl/heap.h"
+#include "gfl/heapsys.h"
 #include "gfl/net.h"
 #include "gfl/particle.h"
 #include "gfl/sound.h"
@@ -92,9 +93,21 @@ struct BtlvEffvm {
     u32 unk2A0;                    // 0x2a0  variable 0x37
     u32 lastMove;                  // 0x2a4  effects 0x261 and 0x262 don't repeat for the same attacker
     u32 lastAttacker;              // 0x2a8
+    // SANDBOX: the VM is one of the burst's, which shares the view with the others, and its tasks' group, which it ends
+    // without ending theirs
+    BOOL burst;
+    u32 taskGroup;
 };
 
 #define BTLV_EFFECT_FIRST 0x231
+
+// SANDBOX: particles of a burst VM load only with this much of the heap free: a full system's work, the largest
+// resource of the archive (35944 bytes), and room for the commands' small allocations
+#define BTLV_EFFVM_BURST_PARTICLE_FREE 0x12000
+#define BTLV_EFFVM_FULL_WORK_SIZE 0x4800
+
+// SANDBOX: a burst VM's tasks all end with it, in its own group
+#define BTLV_EFFVM_TASK_GROUP(wk, group) ((wk)->burst ? (wk)->taskGroup : (group))
 
 // The emitter parameters the particle commands pass BtlvEffvm_InitEmitter, 0x5c bytes
 typedef struct {
@@ -506,6 +519,14 @@ static VecFx32 sCamPosTriple[6] = { { FX32_CONST(1.7), FX32_CONST(6.2), FX32_CON
                                     { FX32_CONST(6.7), FX32_CONST(6.2), FX32_CONST(20.3) },
                                     { 0x2994, FX32_CONST(6.95), 0x6e79 } };
 
+// SANDBOX: makes the VM one of the burst's
+void BtlvEffvm_SetBurst(VM *vm, u32 taskGroup) {
+    BtlvEffvm *wk = VM_GetEnv(vm);
+
+    wk->burst = TRUE;
+    wk->taskGroup = taskGroup;
+}
+
 VM *BtlvEffvm_Create(TCBManager *tcbManager, HeapID heapId) {
     BtlvEffvm *wk = GFL_HeapAllocate(heapId, sizeof(BtlvEffvm), TRUE, "btlv_effvm.c", 718);
     VM *vm;
@@ -538,7 +559,7 @@ BOOL BtlvEffvm_Main(VM *vm) {
     }
     if (!running && wk->script != NULL) {
         BtlvEffect_SetGaugeDrawEnableBySide(1, 2);
-        if (!wk->isEffect) {
+        if (!wk->isEffect && !wk->burst) {
             BtlvEffvm_StartBgmFade(wk, 0x6b000, 0x7f000, 20);
         }
         GFL_HeapFree(wk->script);
@@ -562,7 +583,7 @@ void BtlvEffvm_Start(VM *vm, u32 attacker, u32 defender, u16 move, BtlvEffvmPara
     void *script;
 
     wk->script = NULL;
-    BtlvEffect_EndTaskGroup(1);
+    BtlvEffect_EndTaskGroup(BTLV_EFFVM_TASK_GROUP(wk, 1));
     if (param != NULL) {
         wk->param = *param;
     } else {
@@ -590,7 +611,9 @@ void BtlvEffvm_Start(VM *vm, u32 attacker, u32 defender, u16 move, BtlvEffvmPara
         GFL_BGSysSetBGEnabled(2, FALSE);
         GFL_BGSysSetBGEnabled(3, FALSE);
         wk->isEffect = FALSE;
-        BtlvEffvm_StartBgmFade(wk, 0x7f000, 0x6b000, 20);
+        if (!wk->burst) {
+            BtlvEffvm_StartBgmFade(wk, 0x7f000, 0x6b000, 20);
+        }
     } else {
         wk->script =
             GFL_ArcSysReadHeapNew(ARCID_BTLV_EFFVM_EFFECT_SCRIPTS, move - BTLV_EFFECT_FIRST, HEAPID_TAIL(wk->heapId));
@@ -613,6 +636,9 @@ void BtlvEffvm_Start(VM *vm, u32 attacker, u32 defender, u16 move, BtlvEffvmPara
         } else {
             visible = BtlvMcss_GetFlags(BtlvEffect_GetMcss(), wk->attacker) & 1;
         }
+    }
+    if (wk->burst) {
+        visible = FALSE;
     }
     if (wk->move == 0x27e) {
         wk->unk0_18 = TRUE;
@@ -714,7 +740,7 @@ void BtlvEffvm_PlaySEAt(VM *vm, u32 se, u32 player, u32 pan, int pitch, int volu
     work->modDepth = modDepth;
     work->modSpeed = modSpeed;
     wk->seDelayed = TRUE;
-    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SeWaitTask, work, 0), BtlvEffvm_SeWaitTaskRemove, 1);
+    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SeWaitTask, work, 0), BtlvEffvm_SeWaitTaskRemove, BTLV_EFFVM_TASK_GROUP(wk, 1));
 }
 
 void BtlvEffvm_SlideSE(VM *vm, u32 player, u32 type, u32 param, int start, int end, int delay, int frames, int stepWait,
@@ -740,7 +766,7 @@ void BtlvEffvm_SlideSE(VM *vm, u32 player, u32 type, u32 param, int start, int e
     }
     work->value = FX32_CONST(work->start);
     work->step = FX_Div(FX32_CONST(work->end - work->start), FX32_CONST(work->frames));
-    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SeMoveTask, work, 0), BtlvEffvm_SeMoveTaskRemove, 1);
+    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SeMoveTask, work, 0), BtlvEffvm_SeMoveTaskRemove, BTLV_EFFVM_TASK_GROUP(wk, 1));
     wk->seSliding = TRUE;
 }
 
@@ -774,7 +800,8 @@ static BOOL BtlvEffvm_CmdCameraMovePreset(VM *vm, void *env) {
     int rule;
     int battler;
 
-    if (wk->cameraLocked) {
+    // SANDBOX: the camera of the burst stays, and so do the sizes of the Pokémon that the presets change
+    if (wk->cameraLocked || wk->burst) {
         return wk->ret;
     }
     if (posType == 13 && wk->camSaved == FALSE) {
@@ -1127,6 +1154,32 @@ static BOOL BtlvEffvm_CmdCameraSave(VM *vm, void *env) {
     return wk->ret;
 }
 
+// SANDBOX: a burst VM's particles, uploaded at once: the V-blank tasks, 16 in all, are too few for all of them. When
+// no system is left, or no memory, there are none, which the emitter commands already handle
+static BOOL BtlvEffvm_LoadBurstParticle(BtlvEffvm *wk, u32 fileId, int index) {
+    void *work;
+    void *resource;
+
+    if (GFL_HeapGetHighestAllocatableSize(wk->heapId) < BTLV_EFFVM_BURST_PARTICLE_FREE) {
+        wk->particleIds[index] = -1;
+        return TRUE;
+    }
+    work = GFL_HeapAllocate(HEAPID_TAIL(wk->heapId), BTLV_EFFVM_FULL_WORK_SIZE, FALSE, "btlv_effvm.c", 1912);
+    resource = Particle_ReadResource(ARCID_BTLV_EFFVM_PARTICLES, fileId, HEAPID_TAIL(wk->heapId));
+    wk->particles[index] = Particle_CreateSystemEx(work, BTLV_EFFVM_FULL_WORK_SIZE, FALSE, 5, 6, 54,
+                                                  HEAPID_TAIL(wk->heapId));
+    if (wk->particles[index] == NULL) {
+        GFL_HeapFree(work);
+        GFL_HeapFree(resource);
+        wk->particleIds[index] = -1;
+        return TRUE;
+    }
+    Particle_SetResourceNoUpload(wk->particles[index], resource);
+    Particle_UploadResource(wk->particles[index]);
+    BtlvEffvm_SetEmitterCount(wk, index, resource);
+    return TRUE;
+}
+
 static BOOL BtlvEffvm_CmdParticleLoad(VM *vm, void *env) {
     BtlvEffvm *wk = env;
     u32 fileId = BtlvEffvm_GetBallParticleId(wk, VM_Read32(vm));
@@ -1136,6 +1189,9 @@ static BOOL BtlvEffvm_CmdParticleLoad(VM *vm, void *env) {
     BtlvEffvmParticleVBlankWork *vblank;
 
     if (BtlvEffvm_FindOrAddParticleId(wk, fileId, &index) == TRUE) {
+        if (wk->burst) {
+            return BtlvEffvm_LoadBurstParticle(wk, fileId, index);
+        }
         work = GFL_HeapAllocate(HEAPID_TAIL(wk->heapId), 0x4800, FALSE, "btlv_effvm.c", 1912);
         resource = Particle_ReadResource(ARCID_BTLV_EFFVM_PARTICLES, fileId, HEAPID_TAIL(wk->heapId));
         if (work != NULL && resource != NULL) {
@@ -1549,7 +1605,7 @@ static BOOL BtlvEffvm_CmdMcssMoveXY(VM *vm, void *env) {
     frames = VM_Read32(vm);
     wait = VM_Read32(vm);
     times = VM_Read32(vm);
-    if (count != 0) {
+    if (count != 0 && !wk->burst) {
         for (i = 0; i < count; i++) {
             BtlvMcss_MovePosition(BtlvEffect_GetMcss(), positions[i], type, &dest, frames, wait, times);
         }
@@ -1572,7 +1628,7 @@ static BOOL BtlvEffvm_CmdMcssCircle(VM *vm, void *env) {
     circle.wait = (s32)VM_Read32(vm) >> FX32_SHIFT;
     circle.count = (s32)VM_Read32(vm) >> FX32_SHIFT;
     circle.turnWait = VM_Read32(vm);
-    if (count != 0 && circle.count != 0) {
+    if (count != 0 && !wk->burst && circle.count != 0) {
         for (i = 0; i < count; i++) {
             circle.pos = positions[i];
             BtlvMcss_MoveCircle(BtlvEffect_GetMcss(), &circle);
@@ -1668,7 +1724,7 @@ static BOOL BtlvEffvm_CmdMcssAlpha(VM *vm, void *env) {
     s32 times = VM_Read32(vm);
     int i;
 
-    if (count != 0) {
+    if (count != 0 && !wk->burst) {
         for (i = 0; i < count; i++) {
             BtlvMcss_MoveAlpha(BtlvEffect_GetMcss(), positions[i], type, alpha, frames, wait, times);
         }
@@ -1704,7 +1760,7 @@ static BOOL BtlvEffvm_CmdMcssBlink(VM *vm, void *env) {
     s32 times = VM_Read32(vm);
     int i;
 
-    if (count != 0) {
+    if (count != 0 && !wk->burst) {
         if (times == 0) {
             times = 1;
         }
@@ -1740,6 +1796,10 @@ static BOOL BtlvEffvm_CmdMcssPalFade(VM *vm, void *env) {
     u32 color = VM_Read32(vm);
     int i;
 
+    // SANDBOX: no Pokémon of the burst takes on the color of a status
+    if (wk->burst) {
+        count = 0;
+    }
     if (count != 0) {
         for (i = 0; i < count; i++) {
             BtlvMcss_StartPaletteFade(BtlvEffect_GetMcss(), positions[i], startEvy, endEvy, wait, color);
@@ -1755,9 +1815,11 @@ static BOOL BtlvEffvm_CmdMcssSetMode(VM *vm, void *env) {
     int mode = VM_Read32(vm);
     int i;
 
-    if (mode == 5) {
+    if (wk->burst) {
+        // SANDBOX: nothing of the burst hides a Pokémon
+    } else if (mode == 5) {
         BtlvMcss_RestoreVanish(BtlvEffect_GetMcss());
-    } else if (count != 0) {
+    } else if (count != 0 && !wk->burst) {
         for (i = 0; i < count; i++) {
             BtlvMcss_SetVanish(BtlvEffect_GetMcss(), positions[i], mode);
         }
@@ -1772,7 +1834,7 @@ static BOOL BtlvEffvm_CmdMcssSetValue(VM *vm, void *env) {
     int value = VM_Read32(vm);
     int i;
 
-    if (count != 0) {
+    if (count != 0 && !wk->burst) {
         for (i = 0; i < count; i++) {
             BtlvMcss_SetShadowVanish(BtlvEffect_GetMcss(), positions[i], value);
         }
@@ -1948,7 +2010,7 @@ static BOOL BtlvEffvm_CmdBgPalAnim(VM *vm, void *env) {
     GFL_HeapFree(data);
     wk->paletteAnim = TRUE;
     BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_PalAnimTask, work, 0), BtlvEffvm_PalAnimTaskRemove,
-                       1);
+                       BTLV_EFFVM_TASK_GROUP(wk, 1));
     return wk->ret;
 }
 
@@ -1996,7 +2058,9 @@ static BOOL BtlvEffvm_CmdSetVanish(VM *vm, void *env) {
     u32 target = VM_Read32(vm);
     u32 hide = VM_Read32(vm);
 
-    BtlvEffect_SetVanish(target, hide);
+    if (!wk->burst) {
+        BtlvEffect_SetVanish(target, hide);
+    }
     return wk->ret;
 }
 
@@ -2015,7 +2079,7 @@ BOOL BtlvEffect_QueueCommands(VM *vm, void *env) {
     work->keepWindow = VM_Read32(vm);
     GFL_BGSysSetBGEnabled(1, FALSE);
     GFL_BGSysSetBGEnabled(2, FALSE);
-    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_WindowTask, work, 0), BtlvEffvm_WindowTaskRemove, 1);
+    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_WindowTask, work, 0), BtlvEffvm_WindowTaskRemove, BTLV_EFFVM_TASK_GROUP(wk, 1));
     wk->windowTask = TRUE;
     return wk->ret;
 }
@@ -2245,7 +2309,7 @@ static BOOL BtlvEffvm_CmdPanSE(VM *vm, void *env) {
     }
     work->value = FX32_CONST(work->start);
     work->step = FX_Div(FX32_CONST(work->end - work->start), FX32_CONST(work->frames));
-    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SeMoveTask, work, 0), BtlvEffvm_SeMoveTaskRemove, 1);
+    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SeMoveTask, work, 0), BtlvEffvm_SeMoveTaskRemove, BTLV_EFFVM_TASK_GROUP(wk, 1));
     wk->seSliding = TRUE;
     return wk->ret;
 }
@@ -2441,7 +2505,9 @@ static BOOL BtlvEffvm_CmdMcssEffect(VM *vm, void *env) {
 static BOOL BtlvEffvm_CmdMcssSwap(VM *vm, void *env) {
     BtlvEffvm *wk = env;
 
-    BtlvMcss_Transform(BtlvEffect_GetMcss(), wk->defender, wk->attacker);
+    if (!wk->burst) {
+        BtlvMcss_Transform(BtlvEffect_GetMcss(), wk->defender, wk->attacker);
+    }
     return wk->ret;
 }
 
@@ -2471,7 +2537,7 @@ static BOOL BtlvEffvm_CmdPlayCry(VM *vm, void *env) {
                                                               FALSE, "btlv_effvm.c", 4540);
 
                 work->wk = wk;
-                BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_CryWaitTask, work, 0), NULL, 0);
+                BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_CryWaitTask, work, 0), NULL, BTLV_EFFVM_TASK_GROUP(wk, 0));
             }
         } else {
             for (i = 0; i < count; i++) {
@@ -2488,7 +2554,7 @@ static BOOL BtlvEffvm_CmdPlayCry(VM *vm, void *env) {
                 work->delay = delay;
                 wk->cryDelayed = TRUE;
                 BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_CryDelayTask, work, 0),
-                                   BtlvEffvm_CryDelayTaskRemove, 1);
+                                   BtlvEffvm_CryDelayTaskRemove, BTLV_EFFVM_TASK_GROUP(wk, 1));
             }
         }
     }
@@ -2612,7 +2678,7 @@ static BOOL BtlvEffvm_CmdWaitSide(VM *vm, void *env) {
     work->wk = wk;
     work->side = side;
     work->doneMask = 0;
-    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SideResetTask, work, 0), NULL, 1);
+    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_SideResetTask, work, 0), NULL, BTLV_EFFVM_TASK_GROUP(wk, 1));
     return wk->ret;
 }
 
@@ -2645,7 +2711,7 @@ static BOOL BtlvEffvm_CmdEnd(VM *vm, void *env) {
         GFL_HeapFree(wk->allocs[i]);
     }
     wk->allocCount = 0;
-    BtlvEffect_EndTaskGroup(1);
+    BtlvEffect_EndTaskGroup(BTLV_EFFVM_TASK_GROUP(wk, 1));
     BtlvEffvm_ResetMcssAll(wk);
     BtlvEffvm_ClearMcssFlagAll(wk);
     if (!wk->unk0_18) {
@@ -2668,7 +2734,7 @@ static BOOL BtlvEffvm_CmdEnd(VM *vm, void *env) {
         G2x_SetBlendAlpha_(0x4000050, 2, 0x3d, 0x1f, 7);
         wk->alphaBlend = FALSE;
     }
-    if (wk->sePlayed) {
+    if (wk->sePlayed && !wk->burst) {
         GFL_SndStop();
     }
     visible = FALSE;
@@ -2678,6 +2744,9 @@ static BOOL BtlvEffvm_CmdEnd(VM *vm, void *env) {
         } else {
             visible = BtlvMcss_GetFlags(BtlvEffect_GetMcss(), wk->attacker) & 1;
         }
+    }
+    if (wk->burst) {
+        visible = FALSE;
     }
     if (wk->savedScript != NULL) {
         u32 offset;
@@ -2720,7 +2789,8 @@ static BOOL BtlvEffvm_CmdEnd(VM *vm, void *env) {
         VM_LoadScript(vm, (u8 *)wk->script + ((u32 *)wk->script)[1]);
         return TRUE;
     }
-    if (wk->move != 0x27e) {
+    // SANDBOX: the burst shows the layers again when its last script has ended, and not before: the message window is one
+    if (wk->move != 0x27e && !wk->burst) {
         GFL_BGSysSetBGEnabled(1, TRUE);
         GFL_BGSysSetBGEnabled(2, TRUE);
         GFL_BGSysSetBGEnabled(3, TRUE);
@@ -3060,6 +3130,18 @@ static int BtlvEffvm_GetTargetPositions(BtlvEffvm *wk, int code, int *positions)
             positions[0] = BTLV_MCSS_POS_NONE;
             count = 0;
         }
+    }
+    if (wk->burst) {
+        // SANDBOX: the user of the move Yes is left alone by every script of the burst: it neither moves, vanishes,
+        // scales, shakes nor changes color
+        int kept = 0;
+
+        for (i = 0; i < count; i++) {
+            if (positions[i] != wk->attacker) {
+                positions[kept++] = positions[i];
+            }
+        }
+        count = kept;
     }
     return count;
 }
@@ -4143,7 +4225,7 @@ static void BtlvEffvm_StartBgmFade(BtlvEffvm *wk, fx32 start, fx32 end, int fram
     work->target = end;
     work->wk = wk;
     BtlvEffTool_CalcStep(work->volume, work->target, &work->step, FX32_CONST(frames));
-    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_BgmFadeTask, work, 0), NULL, 1);
+    BtlvEffect_AddTask(GFL_TCBMgrAddTask(wk->tcbManager, BtlvEffvm_BgmFadeTask, work, 0), NULL, BTLV_EFFVM_TASK_GROUP(wk, 1));
 }
 
 static int BtlvEffvm_GetFreeVoiceSlot(BtlvEffvm *wk) {
@@ -4283,7 +4365,7 @@ static void BtlvEffvm_CryDelayTask(TCB *tcb, void *data) {
             wait = GFL_HeapAllocate(HEAPID_TAIL(work->wk->heapId), sizeof(BtlvEffvmCryWaitWork), FALSE, "btlv_effvm.c",
                                     8044);
             wait->wk = work->wk;
-            BtlvEffect_AddTask(GFL_TCBMgrAddTask(work->wk->tcbManager, BtlvEffvm_CryWaitTask, wait, 0), NULL, 0);
+            BtlvEffect_AddTask(GFL_TCBMgrAddTask(work->wk->tcbManager, BtlvEffvm_CryWaitTask, wait, 0), NULL, BTLV_EFFVM_TASK_GROUP(work->wk, 0));
         }
         BtlvEffect_EndTask(tcb);
     }

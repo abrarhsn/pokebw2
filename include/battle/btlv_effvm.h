@@ -23,6 +23,7 @@ typedef struct {
 } BtlvEffvmParam;
 
 VM *BtlvEffvm_Create(TCBManager *tcbManager, HeapID heapId);
+void BtlvEffvm_SetBurst(VM *vm, u32 taskGroup);
 BOOL BtlvEffvm_Main(VM *vm);
 void BtlvEffvm_Delete(VM *vm);
 void BtlvEffvm_Start(VM *vm, u32 attacker, u32 defender, u16 move, BtlvEffvmParam *param);

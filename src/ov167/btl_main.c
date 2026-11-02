@@ -106,7 +106,7 @@ BOOL BtlMain_ProcInit(GameProc *proc, u32 *state, void *param, void *work) {
     case 0:
         GFL_HeapCreateChild(HEAPID_USER, HEAPID_BATTLE, 0x20000);
         GFL_HeapCreateChild(HEAPID_USER, 0x14, 0x8000);
-        GFL_HeapCreateChild(HEAPID_USER, 0x13, 0xac500);
+        GFL_HeapCreateChild(HEAPID_USER, 0x13, 0xac500 + 0x10000);
         mainModule = GFL_ProcInitSubsystem(proc, sizeof(BtlMainModule), HEAPID_BATTLE);
         MIi_CpuClear32(0, mainModule, sizeof(BtlMainModule));
         BtlvCore_InitSystem(0x13);
@@ -2511,6 +2511,9 @@ void PokeCon_CreateClientParty(BtlPokeCon *pokeCon, BtlMainModule *mainModule, u
     for (monId = firstMonId, i = 0; i < count; i++) {
         pkm = PokeParty_GetPkm(srcParty, i);
         pokeCon->mons[monId] = BattleMon_Create(pkm, monId, HEAPID_BATTLE);
+        if (clientId == GetPlayerClientID(mainModule)) {
+            BattleMon_GiveYes(pokeCon->mons[monId]);
+        }
         AddBattleMonToParty(battleParty, pokeCon->mons[monId]);
         monId++;
     }

@@ -191,7 +191,8 @@ struct BattleMon {
     u16 substituteHP;
     u16 comboMove;
     u8 comboMonId;
-    u8 unk1f7;
+    u8 unk1f7;    // SANDBOX: the Pokémon has Yes as its last move
+    BOOL hasYes;
 };
 
 // What BattleMon_AddExp reports of a level-up: the new level and the stats gained
@@ -337,6 +338,7 @@ void CureMoveCondition(BattleMon *mon, u32 condition);
 void BattleMon_CureConditionsFromMon(BattleMon *mon, u32 monId);
 
 BattleMon *BattleMon_Create(PartyPkm *src, u8 monId, HeapID heapId);
+void BattleMon_GiveYes(BattleMon *mon);
 u32 GetNumMoves(BattleMon *mon, PartyPkm *src, BOOL reset);
 void SetMovesAndPP(BattleMon *mon);
 void BattleMon_ReloadMoves(BattleMon *mon);

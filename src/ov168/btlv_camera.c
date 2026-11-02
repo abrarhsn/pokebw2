@@ -28,6 +28,7 @@ struct BtlvCamera {
     s32 brakeFrames;        // 0x74  steps until the steps are halved, 0 for never
     BtlvEffToolMove shake;  // 0x78
     HeapID heapId;          // 0xb4
+    BOOL locked;            // SANDBOX: the camera stays where it is (the move Yes)
 };
 
 #define CAMERA_MOVE_POS (1 << 0)
@@ -66,7 +67,14 @@ void BtlvCamera_Main(BtlvCamera *camera) {
     BtlvCamera_Update(camera);
 }
 
+void BtlvCamera_SetLocked(BtlvCamera *camera, BOOL locked) {
+    camera->locked = locked;
+}
+
 void BtlvCamera_SetPosTarget(BtlvCamera *camera, const VecFx32 *pos, const VecFx32 *target) {
+    if (camera->locked) {
+        return;
+    }
     if (pos != NULL) {
         camera->pos.x = pos->x;
         camera->pos.y = pos->y;
@@ -84,6 +92,9 @@ void BtlvCamera_SetPosTarget(BtlvCamera *camera, const VecFx32 *pos, const VecFx
 }
 
 void BtlvCamera_Rotate(BtlvCamera *camera, s32 pitch, s32 yaw) {
+    if (camera->locked) {
+        return;
+    }
     BtlvCamera_CalcRotatedPos(camera, pitch, yaw, &camera->pos, &camera->target);
     GFL_G3DCameraSetLookatPos(camera->camera, &camera->pos);
     GFL_G3DCameraFlush(camera->camera);
@@ -91,6 +102,9 @@ void BtlvCamera_Rotate(BtlvCamera *camera, s32 pitch, s32 yaw) {
 
 void BtlvCamera_MoveTo(BtlvCamera *camera, const VecFx32 *pos, const VecFx32 *target, int frames, int wait,
                        int brakeFrames) {
+    if (camera->locked) {
+        return;
+    }
     camera->brakeFrames = brakeFrames;
     camera->wait = wait;
     camera->waitReset = wait;
@@ -112,6 +126,9 @@ void BtlvCamera_MoveTo(BtlvCamera *camera, const VecFx32 *pos, const VecFx32 *ta
 
 // Shakes the camera sideways (dir 1) or vertically by amplitude: count full swings of 4 * frames steps
 void BtlvCamera_Shake(BtlvCamera *camera, int dir, fx32 amplitude, int unused, int frames, int wait, int count) {
+    if (camera->locked) {
+        return;
+    }
     camera->shake.type = BTLV_EFFTOOL_MOVE_SHAKE;
     camera->shake.stepTime = frames;
     camera->shake.stepTimeReset = frames;

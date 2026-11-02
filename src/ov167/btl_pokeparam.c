@@ -10,6 +10,7 @@
 #include "constants/abilities.h"
 #include "constants/battle.h"
 #include "constants/items.h"
+#include "constants/moves.h"
 #include "constants/pokemon.h"
 #include "constants/species.h"
 #include "constants/types.h"
@@ -145,6 +146,24 @@ void BattleMon_ReloadMoves(BattleMon *mon) {
     }
 }
 
+// SANDBOX: Yes goes in the fourth slot, or in the first empty one if the Pokémon has fewer moves, since the menus only
+// show the first moveCount
+static void BattleMon_InstallYes(BattleMon *mon) {
+    u32 slot = mon->moveCount < 4 ? mon->moveCount : 3;
+
+    if (mon->hasYes) {
+        Move_UpdateID(mon, slot, MOVE_YES, 0, FALSE);
+        if (mon->moveCount < 4) {
+            mon->moveCount++;
+        }
+    }
+}
+
+void BattleMon_GiveYes(BattleMon *mon) {
+    mon->hasYes = TRUE;
+    BattleMon_InstallYes(mon);
+}
+
 void MoveWork_ClearSurface(BattleMon *mon) {
     u32 i;
 
@@ -156,6 +175,7 @@ void MoveWork_ClearSurface(BattleMon *mon) {
         }
         mon->moves[i].linked = 1;
     }
+    BattleMon_InstallYes(mon);
 }
 
 void MoveWork_ClearUsedFlags(BattleMoveWork *move) {
