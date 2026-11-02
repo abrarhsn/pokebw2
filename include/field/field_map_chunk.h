@@ -110,6 +110,7 @@ BOOL FieldChunk_Draw(FieldChunk *chunk, G3DCamera *camera);
 void FieldChunk_BindArc(FieldChunk *chunk, u32 arcId, HeapID heapId);
 void FieldChunk_UnbindArc(FieldChunk *chunk);
 void FieldChunk_BindMapTextures(FieldChunk *chunk, G3DResource *textures);
+G3DResource *FieldChunk_GetMapTextures(FieldChunk *chunk);
 void FieldChunk_UnbindMapTextures(FieldChunk *chunk);
 void FieldChunk_BindPropResInstanceBank(FieldChunk *chunk, FieldPropResBank *bank);
 void FieldChunk_UnbindPropResInstanceBank(FieldChunk *chunk);

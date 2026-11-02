@@ -618,7 +618,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_ACCUMULA_GATE",
+            "zone": 65535,
             "warp": 1,
             "unk4": 3,
             "transition": 4,

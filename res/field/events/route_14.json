@@ -498,8 +498,8 @@
             }
         },
         {
-            "zone": "ZONE_BLACK_GATE",
-            "warp": 1,
+            "zone": "ZONE_BLACK_CITY",
+            "warp": 0,
             "unk4": 1,
             "transition": 4,
             "grid": {

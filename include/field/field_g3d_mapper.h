@@ -64,6 +64,8 @@ struct FieldG3DMapperConfig {
     FieldTerrainAnmInfo terrainAnmInfo;
     u32 chunkBufferSize;
     u8 renderPhase1MaxChunkCount;
+    // WORLD: the matrix whose cells have each its zone, NULL for a map that has one area
+    MapMatrix *matrix;
 };
 
 // The terrain layers at a position, which the mapper gathers from its chunks
@@ -122,6 +124,15 @@ struct FieldG3DMapper {
     FieldWFBC *wfbc;
     ResortMapCreateWork *resortMap;
     HeightExList *heightEx;
+    // WORLD: a chunk of another area than the first has its own texture set. The matrix says each cell's zone, and this
+    // holds the second set, for as long as a chunk of it is around
+    MapMatrix *matrix;
+    FieldColorPostFX *colorPostFx;
+    u16 season;
+    u32 mainTexSetId;
+    u32 altTexSetId;
+    u32 altTexArcId;
+    G3DResource *altTextures;
 };
 
 FieldG3DMapper *FieldG3DMapper_Create(HeapID heapId, u16 season);
@@ -138,6 +149,7 @@ void FieldG3DMapper_FreeMap(FieldG3DMapper *mapper);
 void FieldG3DMapper_LoadMapTextures(FieldG3DMapper *mapper, const FieldG3DMapperConfig *config,
                                     FieldColorPostFX *colorPostFx);
 void FieldG3DMapper_FreeMapTextures(FieldG3DMapper *mapper);
+void FieldG3DMapper_FreeAltTextures(FieldG3DMapper *mapper);
 void FieldG3DMapper_SetPlayerPos(FieldG3DMapper *mapper, const VecFx32 *position);
 u32 FieldG3DMapper_GetBasePosChunkHandleIdx(FieldG3DMapper *mapper);
 void FieldG3DMapper_GenLocators0(FieldG3DMapper *mapper, const VecFx32 *playerPos, FieldChunkLocator *locators);

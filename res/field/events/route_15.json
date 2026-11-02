@@ -397,8 +397,8 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_BLACK_GATE_GATE",
-            "warp": 0,
+            "zone": "ZONE_BLACK_CITY",
+            "warp": 1,
             "unk4": 3,
             "transition": 4,
             "grid": {
@@ -411,7 +411,7 @@
             }
         },
         {
-            "zone": "ZONE_BRIDGE_GATE_GATE_6",
+            "zone": "ZONE_MARVELOUS_BRIDGE",
             "warp": 1,
             "unk4": 4,
             "transition": 4,

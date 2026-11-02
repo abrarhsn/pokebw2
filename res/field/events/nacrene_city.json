@@ -604,7 +604,7 @@
             }
         },
         {
-            "zone": "ZONE_NACRENE_GATE",
+            "zone": 65535,
             "warp": 1,
             "unk4": 3,
             "transition": 4,

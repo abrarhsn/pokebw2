@@ -823,7 +823,7 @@
             }
         },
         {
-            "zone": "ZONE_UNDELLA_GATE",
+            "zone": 65535,
             "warp": 0,
             "unk4": 1,
             "transition": 4,

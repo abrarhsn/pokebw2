@@ -494,7 +494,7 @@
             }
         },
         {
-            "zone": "ZONE_BRIDGE_GATE_GATE_8",
+            "zone": "ZONE_MARINE_TUBE",
             "warp": 0,
             "unk4": 2,
             "transition": 4,
@@ -508,7 +508,7 @@
             }
         },
         {
-            "zone": "ZONE_UNDELLA_GATE",
+            "zone": 65535,
             "warp": 1,
             "unk4": 2,
             "transition": 3,

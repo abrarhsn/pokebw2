@@ -628,8 +628,8 @@
             }
         },
         {
-            "zone": "ZONE_BRIDGE_GATE_GATE_9",
-            "warp": 0,
+            "zone": "ZONE_MARINE_TUBE",
+            "warp": 1,
             "unk4": 3,
             "transition": 4,
             "grid": {

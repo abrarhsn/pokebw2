@@ -27,7 +27,7 @@
     "fly_from": true,
     "cycle_surf_bgm": true,
     "entralink_warp": true,
-    "cam_bound": 432,
+    "cam_bound": 0,
     "name_icon": 55,
     "easy_level": 4,
     "fly": {

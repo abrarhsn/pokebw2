@@ -348,7 +348,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_ASPERTIA_GATE",
+            "zone": 65535,
             "warp": 1,
             "unk4": 1,
             "transition": 4,

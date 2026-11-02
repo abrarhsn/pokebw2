@@ -18,7 +18,7 @@
             }
         },
         {
-            "zone": "ZONE_BRIDGE_GATE_2",
+            "zone": "ZONE_SKYARROW_BRIDGE",
             "warp": 0,
             "unk4": 3,
             "transition": 4,

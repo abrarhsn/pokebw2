@@ -642,7 +642,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_NIMBASA_GATE_GATE",
+            "zone": 65535,
             "warp": 1,
             "unk4": 3,
             "transition": 4,

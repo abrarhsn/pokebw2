@@ -409,7 +409,7 @@
             }
         },
         {
-            "zone": "ZONE_OPELUCID_GATE",
+            "zone": 65535,
             "warp": 0,
             "unk4": 3,
             "transition": 4,

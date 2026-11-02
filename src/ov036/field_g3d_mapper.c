@@ -6,9 +6,11 @@
 #include "field/field_prop.h"
 #include "field/field_terrain_animator.h"
 #include "field/resort_mapcreate.h"
+#include "field/zone.h"
 #include "gfl/g3d.h"
 #include "gfl/heap.h"
 #include "gfl/std.h"
+#include "system/area_data.h"
 #include "nitro/fx.h"
 #include "nitro/gx.h"
 #include "nitro/os.h"
@@ -33,6 +35,7 @@ FieldG3DMapper *FieldG3DMapper_Create(HeapID heapId, u16 season) {
 
     mapper->heapId = heapId;
     VEC_Set(&mapper->playerPos, 0, 0, 0);
+    mapper->season = season;
     mapper->matrixWidth = 0;
     mapper->matrixHeight = 0;
     mapper->chunkIdCount = 0;
@@ -227,6 +230,11 @@ void FieldG3DMapper_CreateMap(FieldG3DMapper *mapper, const FieldG3DMapperConfig
         break;
     }
     mapper->isSharedTexResource = config->isSharedTexResource;
+    mapper->matrix = config->matrix;
+    mapper->colorPostFx = colorPostFx;
+    mapper->mainTexSetId = config->textures.fileId;
+    mapper->altTexArcId = config->textures.arcId;
+    mapper->altTextures = NULL;
     FieldG3DMapper_LoadMapTextures(mapper, config, colorPostFx);
     mapper->terrainAnimator = FieldG3DMapper_CreateTerrainAnimator(mapper->chunkCapacity, mapper->mapTextures,
                                                                    &config->terrainAnmInfo, mapper->heapId);
@@ -305,6 +313,7 @@ void FieldG3DMapper_LoadMapTextures(FieldG3DMapper *mapper, const FieldG3DMapper
 }
 
 void FieldG3DMapper_FreeMapTextures(FieldG3DMapper *mapper) {
+    FieldG3DMapper_FreeAltTextures(mapper);
     if (mapper->mapTextures != NULL) {
         GFL_G3DResFreeTexData(mapper->mapTextures);
         GFL_G3DResFree(mapper->mapTextures);
@@ -528,6 +537,73 @@ void FieldG3DMapper_GenLocators3(FieldG3DMapper *mapper, const VecFx32 *playerPo
 
 // Keeps the loaded chunks that are still wanted, moved to their new places, frees the others, and loads the new ones
 // into them. TRUE if a chunk was loaded
+// WORLD: the texture set of the area that owns a matrix cell, or the first set where the cell has no zone of its own
+static u32 FieldG3DMapper_GetCellTexSetId(FieldG3DMapper *mapper, u32 cell) {
+    u16 zoneId;
+    AreaData *area;
+    u32 texSetId;
+
+    if (mapper->matrix == NULL || cell >= mapper->chunkIdCount || mapper->matrixWidth == 0) {
+        return mapper->mainTexSetId;
+    }
+    zoneId = GetZoneIDAtMatrixXZ(mapper->matrix, cell % mapper->matrixWidth, cell / mapper->matrixWidth);
+    if (zoneId == MATRIX_ZONE_NONE) {
+        return mapper->mainTexSetId;
+    }
+    area = AreaData_Create(HEAPID_TAIL(mapper->heapId), ZoneData_GetAreaID(zoneId), mapper->season);
+    texSetId = AreaData_GetTexSetID(area);
+    AreaData_Free(area);
+    return texSetId;
+}
+
+// WORLD: a chunk of another area than the first shows its textures from that area's set, which is loaded when the first
+// chunk of it comes and given back when the last is gone. A second area's set is the only one held besides the first's
+static void FieldG3DMapper_BindChunkTextures(FieldG3DMapper *mapper, FieldChunk *chunk, u32 cell) {
+    u32 texSetId = FieldG3DMapper_GetCellTexSetId(mapper, cell);
+
+    if (mapper->mapTextures == NULL || texSetId == mapper->mainTexSetId) {
+        FieldChunk_BindMapTextures(chunk, mapper->mapTextures);
+        return;
+    }
+    if (mapper->altTextures != NULL && mapper->altTexSetId != texSetId) {
+        // The second set is another area's: this chunk waits with the first's
+        FieldChunk_BindMapTextures(chunk, mapper->mapTextures);
+        return;
+    }
+    if (mapper->altTextures == NULL) {
+        mapper->altTextures = GFL_G3DSysReadArcSysResource(mapper->altTexArcId, texSetId);
+        if (mapper->colorPostFx != NULL) {
+            FieldColorPostFX_Apply(mapper->colorPostFx, mapper->altTextures);
+        }
+        GFL_G3DResUploadAndReleaseTexData(mapper->altTextures);
+        mapper->altTexSetId = texSetId;
+    }
+    FieldChunk_BindMapTextures(chunk, mapper->altTextures);
+}
+
+void FieldG3DMapper_FreeAltTextures(FieldG3DMapper *mapper) {
+    if (mapper->altTextures != NULL) {
+        GFL_G3DResFreeTexData(mapper->altTextures);
+        GFL_G3DResFree(mapper->altTextures);
+        mapper->altTextures = NULL;
+    }
+}
+
+// WORLD: gives the second set back once no chunk that is around has its textures
+static void FieldG3DMapper_ReleaseUnusedAltTextures(FieldG3DMapper *mapper) {
+    int i;
+
+    if (mapper->altTextures == NULL) {
+        return;
+    }
+    for (i = 0; i < mapper->chunkCapacity; i++) {
+        if (FieldChunk_GetMapTextures(mapper->chunkHandles[i].chunk) == mapper->altTextures) {
+            return;
+        }
+    }
+    FieldG3DMapper_FreeAltTextures(mapper);
+}
+
 BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *locators) {
     VecFx32 pos;
     VecFx32 newPos;
@@ -570,6 +646,8 @@ BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *l
                     datId = mapper->chunkDatIds[FieldChunkLocator_GetChunkID(&locators[i])];
                     FieldChunkLocator_GetPos(&locators[i], &newPos);
                     if (datId != FIELD_CHUNK_DAT_NONE) {
+                        FieldG3DMapper_BindChunkTextures(mapper, mapper->chunkHandles[j].chunk,
+                                                         FieldChunkLocator_GetChunkID(&locators[i]));
                         FieldChunk_ChangeDatID(mapper->chunkHandles[j].chunk, datId);
                         FieldChunk_SetWorldPos(mapper->chunkHandles[j].chunk, &newPos);
                         FieldChunk_SetActive(mapper->chunkHandles[j].chunk, TRUE);
@@ -581,6 +659,7 @@ BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *l
             }
         }
     }
+    FieldG3DMapper_ReleaseUnusedAltTextures(mapper);
     if (loaded == TRUE) {
         result = TRUE;
     }

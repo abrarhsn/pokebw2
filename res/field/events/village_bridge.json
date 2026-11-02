@@ -672,8 +672,8 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_BRIDGE_GATE_GATE_4",
-            "warp": 1,
+            "zone": "ZONE_ROUTE_11",
+            "warp": 0,
             "unk4": 4,
             "transition": 4,
             "grid": {
@@ -686,7 +686,7 @@
             }
         },
         {
-            "zone": "ZONE_BRIDGE_GATE_GATE_5",
+            "zone": "ZONE_ROUTE_12",
             "warp": 0,
             "unk4": 3,
             "transition": 4,

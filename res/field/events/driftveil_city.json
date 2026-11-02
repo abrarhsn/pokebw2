@@ -863,7 +863,7 @@
             }
         },
         {
-            "zone": "ZONE_DRIFTVEIL_CITY_8",
+            "zone": 65535,
             "warp": 0,
             "unk4": 1,
             "transition": 4,

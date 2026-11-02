@@ -121,6 +121,10 @@ void FieldChunk_BindMapTextures(FieldChunk *chunk, G3DResource *textures) {
     chunk->mapTextures = textures;
 }
 
+G3DResource *FieldChunk_GetMapTextures(FieldChunk *chunk) {
+    return chunk->mapTextures;
+}
+
 void FieldChunk_UnbindMapTextures(FieldChunk *chunk) {
     chunk->mapTextures = NULL;
 }

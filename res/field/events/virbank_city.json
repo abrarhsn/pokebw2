@@ -557,7 +557,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_VIRBANK_GATE",
+            "zone": 65535,
             "warp": 1,
             "unk4": 4,
             "transition": 4,

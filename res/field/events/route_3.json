@@ -790,7 +790,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_NACRENE_GATE",
+            "zone": 65535,
             "warp": 0,
             "unk4": 4,
             "transition": 4,

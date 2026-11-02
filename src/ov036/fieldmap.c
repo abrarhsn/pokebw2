@@ -1565,6 +1565,7 @@ void SetupLoadZoneMapTypeData(u16 zoneId, AreaData *area, FieldG3DMapperConfig *
         config->chunkIdCount = GetMapMatrixChunkIDCount(matrix);
         config->chunkDatIds = GetMapMatrixChunkIDs(matrix);
     }
+    config->matrix = MAP_CONFIGS[type].useMapMatrix ? matrix : NULL;
     config->isSharedTexResource = TRUE;
     config->textures.arcId = ARCID_AREA_MAP_TEX;
     config->textures.fileId = AreaData_GetTexSetID(area);

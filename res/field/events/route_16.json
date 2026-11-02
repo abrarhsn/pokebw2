@@ -365,7 +365,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_BRIDGE_GATE_GATE_7",
+            "zone": "ZONE_MARVELOUS_BRIDGE",
             "warp": 0,
             "unk4": 3,
             "transition": 4,
@@ -379,7 +379,7 @@
             }
         },
         {
-            "zone": "ZONE_NIMBASA_GATE_GATE_2",
+            "zone": 65535,
             "warp": 0,
             "unk4": 4,
             "transition": 4,

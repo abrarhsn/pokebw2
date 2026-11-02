@@ -377,7 +377,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_BRIDGE_GATE_GATE_5",
+            "zone": "ZONE_VILLAGE_BRIDGE",
             "warp": 1,
             "unk4": 4,
             "transition": 4,
