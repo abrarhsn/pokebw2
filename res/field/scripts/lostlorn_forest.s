@@ -42,17 +42,17 @@ L_005B:
     MsgWinCloseAll
     PlayerGetGPos 0x8021, 0x8022
     VMStackPush 0x8021
-    VMStackPushConst 8
+    VMStackPushConst 488
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_00CE
-    ActorWalkRoute 7, 9, 15, 1, 8, 0
+    ActorWalkRoute 7, 489, 335, 1, 8, 0
     VMSleep 16
     ActorCmdExec 255, Movement_0170
     ActorCmdWait
     VMJump L_00EA
 
 L_00CE:
-    ActorWalkRoute 7, 8, 14, 1, 8, 1
+    ActorWalkRoute 7, 488, 334, 1, 8, 1
     VMSleep 8
     ActorCmdExec 255, Movement_0170
     ActorCmdWait
@@ -61,14 +61,14 @@ L_00EA:
     ActorDelete 7
     VMSleep 2
     VMStackPush 0x8021
-    VMStackPushConst 8
+    VMStackPushConst 488
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_0119
-    ActorNew 9, 15, 1, 251, 196, 0
+    ActorNew 489, 335, 1, 251, 196, 0
     VMJump L_0127
 
 L_0119:
-    ActorNew 8, 14, 1, 251, 196, 0
+    ActorNew 488, 334, 1, 251, 196, 0
 
 L_0127:
     VMSleep 6

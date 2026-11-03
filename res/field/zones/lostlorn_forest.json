@@ -1,9 +1,9 @@
 {
     "$schema": "zone.schema.json",
-    "map_type": 16,
+    "map_type": 0,
     "npc_cache": 24,
     "area": "AREA_LOSTLORN_FOREST",
-    "matrix": "MAP_MATRIX_LOSTLORN_FOREST",
+    "matrix": "MAP_MATRIX_OVERWORLD",
     "scripts": "SCRIPTS_LOSTLORN_FOREST",
     "text": "SCRIPT_TEXT_LOSTLORN_FOREST",
     "bgm": "SEQ_BGM_D_06",
@@ -22,12 +22,12 @@
     "fly_from": true,
     "cycle_surf_bgm": true,
     "entralink_warp": true,
-    "cam_bound": 238,
+    "cam_bound": 0,
     "name_icon": 15,
     "easy_level": 2,
     "fly": {
-        "x": 5,
+        "x": 485,
         "y": 0,
-        "z": 4
+        "z": 324
     }
 }

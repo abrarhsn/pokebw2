@@ -19,7 +19,7 @@ Script_6:
     VMJump L_0055
 
 L_0043:
-    ActorSetGPos 7, 29, 0, 32, 0
+    ActorSetGPos 7, 221, 0, 736, 0
     VMJump L_009F
 
 L_0055:
@@ -28,7 +28,7 @@ L_0055:
     VMJump L_007A
 
 L_0068:
-    ActorSetGPos 7, 8, 0, 47, 2
+    ActorSetGPos 7, 200, 0, 751, 2
     VMJump L_009F
 
 L_007A:
@@ -37,7 +37,7 @@ L_007A:
     VMJump L_009F
 
 L_008D:
-    ActorSetGPos 7, 20, 65535, 58, 3
+    ActorSetGPos 7, 212, 65535, 762, 3
     VMJump L_009F
 
 L_009F:
@@ -353,7 +353,7 @@ L_04A0:
     VMSleep 16
     ActorCmdExec 255, Movement_0838
     ActorCmdWait
-    ActorSetGPos 7, 8, 0, 47, 2
+    ActorSetGPos 7, 200, 0, 751, 2
     WorkSetConst EVENT_WORK_0x40dd, 1
     VMJump L_0710
 
@@ -432,7 +432,7 @@ L_05CB:
     VMSleep 16
     ActorCmdExec 255, Movement_0848
     ActorCmdWait
-    ActorSetGPos 7, 20, 65535, 58, 3
+    ActorSetGPos 7, 212, 65535, 762, 3
     WorkSetConst EVENT_WORK_0x40dd, 2
     VMJump L_0710
 
@@ -542,7 +542,7 @@ L_075C:
     VMSleep 16
     ActorCmdExec 255, Movement_0840
     ActorCmdWait
-    ActorSetGPos 7, 29, 0, 32, 0
+    ActorSetGPos 7, 221, 0, 736, 0
     WorkSetConst EVENT_WORK_0x40dd, 0
     VMReturn
     .balign 4, 0

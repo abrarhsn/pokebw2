@@ -427,5 +427,7 @@ void ScriptWork_RestoreVarCopy(ScriptWork *work, void *copy);
 u16 *ScriptWork_GetLocalWork(ScriptWork *work, u16 id);
 WordSet *ScriptWork_GetWordSet(ScriptWork *work);
 MMSys *GetScrEnvActorSys(FieldScriptEnv *env);
+// Resolve a normal NPC UID in the VM's owning zone; player and other reserved UIDs remain global.
+FieldActor *FieldScriptEnv_FindActor(FieldScriptEnv *env, u16 id);
 
 #endif // POKEBW2_FIELD_FIELD_SCRIPT_H

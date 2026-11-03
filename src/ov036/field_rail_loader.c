@@ -15,7 +15,9 @@
 #include "field/field_player.h"
 #include "field/field_rail.h"
 #include "field/field_rail_loader.h"
+#include "field/field_script.h"
 #include "field/field_script_event.h"
+#include "field/field_script_supervisor.h"
 #include "field/zone.h"
 #include "gfl/arc_util.h"
 #include "gfl/billboard_actor.h"
@@ -162,9 +164,23 @@ RailDataHandle *FieldRailLoader_GetRailData(RailLoader *loader) {
     return &loader->data;
 }
 
+GameEvent *FieldEventScriptCall_CreateForZone(GameSystem *gsys, u16 scriptId, FieldActor *actor, u16 zoneId) {
+    GameEvent *event = GameEvent_Create(gsys, NULL, EventScriptCall_Callback, sizeof(EventScriptCallData));
+    EventScriptCallData *data = GameEvent_GetData(event);
+
+    data->supervisor = FieldScriptSupervisor_Create(4);
+    data->work = ScriptWork_Create(4, gsys, event, scriptId, 0, 0);
+    ScriptWork_SetParentActor(data->work, actor);
+    ScriptWork_AddVM(data->work, zoneId, scriptId);
+    return event;
+}
+
 GameEvent *CreatePlayerXActorScriptCall(GameSystem *gsys, Field *field, u32 scriptId, FieldActor *player,
                                         FieldActor *actor, HeapID heapId) {
-    return EventScriptCall_Create(gsys, scriptId, actor, heapId);
+    if (GetActorZoneID(actor) == Field_GetPlayerStateZoneID(field)) {
+        return EventScriptCall_Create(gsys, scriptId, actor, heapId);
+    }
+    return FieldEventScriptCall_CreateForZone(gsys, scriptId, actor, GetActorZoneID(actor));
 }
 
 static void FieldActorMove_VanishProc(FieldActor *actor) {

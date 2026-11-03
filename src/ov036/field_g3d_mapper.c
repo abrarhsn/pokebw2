@@ -6,12 +6,14 @@
 #include "field/field_prop.h"
 #include "field/field_terrain_animator.h"
 #include "field/resort_mapcreate.h"
+#include "field/zone.h"
 #include "gfl/g3d.h"
 #include "gfl/heap.h"
 #include "gfl/std.h"
 #include "nitro/fx.h"
 #include "nitro/gx.h"
 #include "nitro/os.h"
+#include "system/area_data.h"
 
 // clang-format off
 const FieldChunkVTable FIELD_CHUNK_VTABLES[5] = {
@@ -33,6 +35,7 @@ FieldG3DMapper *FieldG3DMapper_Create(HeapID heapId, u16 season) {
 
     mapper->heapId = heapId;
     VEC_Set(&mapper->playerPos, 0, 0, 0);
+    mapper->season = season;
     mapper->matrixWidth = 0;
     mapper->matrixHeight = 0;
     mapper->chunkIdCount = 0;
@@ -144,6 +147,11 @@ BOOL FieldG3DMapper_Update(FieldG3DMapper *mapper) {
         mapper->chunkIdOfPlayer = (x >> FX32_SHIFT) + (z >> FX32_SHIFT) * mapper->matrixWidth;
     }
     FieldPropSystem_Update(mapper->propSystem);
+    for (i = 0; i < FIELD_CHUNK_AREA_CACHE_SIZE; i++) {
+        if (mapper->areaCache[i].props != NULL) {
+            FieldPropSystem_Update(mapper->areaCache[i].props);
+        }
+    }
     if (mapper->terrainAnimator != NULL) {
         FieldTerrainAnimator_Update(mapper->terrainAnimator);
     }
@@ -187,6 +195,11 @@ void FieldG3D_RenderFieldmap(FieldG3DMapper *mapper, G3DCamera *camera, u32 pass
     }
     if (pass == FIELD_G3D_RENDER_PHASE_2) {
         FieldPropSystem_DrawAllHandles(mapper->propSystem);
+        for (i = 0; i < FIELD_CHUNK_AREA_CACHE_SIZE; i++) {
+            if (mapper->areaCache[i].props != NULL) {
+                FieldPropSystem_DrawAllHandles(mapper->areaCache[i].props);
+            }
+        }
     }
 }
 
@@ -211,6 +224,13 @@ void FieldG3DMapper_CreateMap(FieldG3DMapper *mapper, const FieldG3DMapperConfig
     mapper->chunkLoadDiameterX = config->chunkLoadDiameterX;
     mapper->chunkLoadDiameterZ = config->chunkLoadDiameterZ;
     mapper->chunkCapacity = config->chunkLoadDiameterX * config->chunkLoadDiameterZ;
+    mapper->retainRecentChunk = config->retainRecentChunk && config->locatorGenType == FIELD_G3D_MAPPER_LOCATORS_AROUND;
+    if (mapper->retainRecentChunk) {
+        mapper->chunkCapacity++;
+    }
+    mapper->residencyTick = 0;
+    mapper->prefetchX = 0;
+    mapper->prefetchZ = 0;
     mapper->phase1MaxChunkCount = config->renderPhase1MaxChunkCount;
     mapper->lastDrawnCount = mapper->chunkCapacity;
     mapper->nowDrawnCount = mapper->chunkCapacity;
@@ -227,6 +247,12 @@ void FieldG3DMapper_CreateMap(FieldG3DMapper *mapper, const FieldG3DMapperConfig
         break;
     }
     mapper->isSharedTexResource = config->isSharedTexResource;
+    mapper->matrix = config->matrix;
+    mapper->colorPostFx = colorPostFx;
+    mapper->mainTexSetId = config->textures.fileId;
+    mapper->mainAreaId = config->areaId;
+    mapper->altTexArcId = config->textures.arcId;
+    MI_CpuFill8(mapper->areaCache, 0, sizeof(mapper->areaCache));
     FieldG3DMapper_LoadMapTextures(mapper, config, colorPostFx);
     mapper->terrainAnimator = FieldG3DMapper_CreateTerrainAnimator(mapper->chunkCapacity, mapper->mapTextures,
                                                                    &config->terrainAnmInfo, mapper->heapId);
@@ -247,6 +273,8 @@ void FieldG3DMapper_CreateMap(FieldG3DMapper *mapper, const FieldG3DMapperConfig
         GFL_HeapAllocate(mapper->heapId, mapper->chunkCapacity, TRUE, "field_g3d_mapper.c", 0x315);
     for (i = 0; i < mapper->chunkCapacity; i++) {
         FieldChunkLocator_Disable(&mapper->chunkHandles[i].locator);
+        mapper->chunkHandles[i].wanted = FALSE;
+        mapper->chunkHandles[i].lastWanted = 0;
         FieldChunkContext_Init(&mapper->chunkHandles[i].context, mapper, i, mapper->heapId);
         chunkConfig.context = &mapper->chunkHandles[i].context;
         chunk = FieldChunk_Create(&chunkConfig, mapper->heapId);
@@ -305,6 +333,7 @@ void FieldG3DMapper_LoadMapTextures(FieldG3DMapper *mapper, const FieldG3DMapper
 }
 
 void FieldG3DMapper_FreeMapTextures(FieldG3DMapper *mapper) {
+    FieldG3DMapper_FreeAltTextures(mapper);
     if (mapper->mapTextures != NULL) {
         GFL_G3DResFreeTexData(mapper->mapTextures);
         GFL_G3DResFree(mapper->mapTextures);
@@ -313,6 +342,21 @@ void FieldG3DMapper_FreeMapTextures(FieldG3DMapper *mapper) {
 }
 
 void FieldG3DMapper_SetPlayerPos(FieldG3DMapper *mapper, const VecFx32 *position) {
+    fx32 dx = position->x - mapper->playerPos.x;
+    fx32 dz = position->z - mapper->playerPos.z;
+
+    if (mapper->retainRecentChunk && (dx != 0 || dz != 0)) {
+        if (dx > dz && dx > -dz) {
+            mapper->prefetchX = 1;
+            mapper->prefetchZ = 0;
+        } else if (dx < dz && dx < -dz) {
+            mapper->prefetchX = -1;
+            mapper->prefetchZ = 0;
+        } else {
+            mapper->prefetchX = 0;
+            mapper->prefetchZ = dz > 0 ? 1 : -1;
+        }
+    }
     VEC_Set(&mapper->playerPos, position->x, position->y, position->z);
 }
 
@@ -427,6 +471,27 @@ void FieldG3DMapper_GenLocators1(FieldG3DMapper *mapper, const VecFx32 *playerPo
                                      halfSpan + FX_Mul(chunkZ << FX32_SHIFT, span));
         }
     }
+    if (mapper->retainRecentChunk && (mapper->prefetchX != 0 || mapper->prefetchZ != 0)) {
+        s32 chunkX = playerPos->x / span;
+        s32 chunkZ = playerPos->z / span;
+        u32 index = mapper->chunkLoadDiameterX * mapper->chunkLoadDiameterZ;
+
+        if (mapper->prefetchX > 0) {
+            chunkX = startX + mapper->chunkLoadDiameterX;
+        } else if (mapper->prefetchX < 0) {
+            chunkX = startX - 1;
+        } else if (mapper->prefetchZ > 0) {
+            chunkZ = startZ + mapper->chunkLoadDiameterZ;
+        } else {
+            chunkZ = startZ - 1;
+        }
+        if (chunkX >= 0 && chunkX < width && chunkZ >= 0 && chunkZ < height &&
+            mapper->chunkDatIds[chunkX + chunkZ * width] != FIELD_CHUNK_DAT_NONE) {
+            FieldChunkLocator_SetChunkID(&locators[index], chunkX + chunkZ * width);
+            FieldChunkLocator_SetPos(&locators[index], halfSpan + FX_Mul(chunkX << FX32_SHIFT, span), 0,
+                                     halfSpan + FX_Mul(chunkZ << FX32_SHIFT, span));
+        }
+    }
 }
 
 // The chunks around the player, wrapping around the matrix
@@ -528,6 +593,184 @@ void FieldG3DMapper_GenLocators3(FieldG3DMapper *mapper, const VecFx32 *playerPo
 
 // Keeps the loaded chunks that are still wanted, moved to their new places, frees the others, and loads the new ones
 // into them. TRUE if a chunk was loaded
+// WORLD: the zone that owns a matrix cell, or the first zone's area where the cell has none of its own
+static u16 FieldG3DMapper_GetCellZoneId(FieldG3DMapper *mapper, u32 cell) {
+    if (mapper->matrix == NULL || cell >= mapper->chunkIdCount || mapper->matrixWidth == 0) {
+        return MATRIX_ZONE_NONE;
+    }
+    return GetZoneIDAtMatrixXZ(mapper->matrix, cell % mapper->matrixWidth, cell / mapper->matrixWidth);
+}
+
+// Chunks of the same area share their texture and prop resources.
+static BOOL FieldG3DMapper_BindChunkTextures(FieldG3DMapper *mapper, FieldChunkHandle *handle, u32 cell) {
+    FieldChunk *chunk = handle->chunk;
+    u16 zoneId = FieldG3DMapper_GetCellZoneId(mapper, cell);
+    u16 areaId = zoneId == MATRIX_ZONE_NONE ? mapper->mainAreaId : ZoneData_GetAreaID(zoneId);
+    FieldChunkAreaResources *resources = NULL;
+    int i;
+
+    if (mapper->mapTextures == NULL || areaId == mapper->mainAreaId) {
+        FieldChunk_BindMapTextures(chunk, mapper->mapTextures);
+        FieldChunk_BindPropResInstanceBank(chunk, FieldPropSystem_GetResBank(mapper->propSystem));
+        handle->context.propSystem = mapper->propSystem;
+        return TRUE;
+    }
+    for (i = 0; i < FIELD_CHUNK_AREA_CACHE_SIZE; i++) {
+        if (mapper->areaCache[i].textures != NULL && mapper->areaCache[i].areaId == areaId) {
+            resources = &mapper->areaCache[i];
+            break;
+        }
+    }
+    if (resources == NULL) {
+        AreaData *area = AreaData_Create(HEAPID_TAIL(mapper->heapId), areaId, mapper->season);
+
+        for (i = 0; i < FIELD_CHUNK_AREA_CACHE_SIZE; i++) {
+            if (mapper->areaCache[i].textures == NULL) {
+                resources = &mapper->areaCache[i];
+                break;
+            }
+        }
+        if (resources == NULL) {
+            AreaData_Free(area);
+            return FALSE;
+        }
+        resources->areaId = areaId;
+        resources->textures = GFL_G3DSysReadArcSysResource(mapper->altTexArcId, AreaData_GetTexSetID(area));
+        if (mapper->colorPostFx != NULL) {
+            FieldColorPostFX_Apply(mapper->colorPostFx, resources->textures);
+        }
+        GFL_G3DResUploadAndReleaseTexData(resources->textures);
+        resources->props = FieldPropSystem_Create(mapper->heapId, mapper, mapper->season);
+        FieldPropSystem_LoadArea(resources->props, zoneId, area, mapper->colorPostFx);
+        AreaData_Free(area);
+    }
+    FieldChunk_BindMapTextures(chunk, resources->textures);
+    FieldChunk_BindPropResInstanceBank(chunk, FieldPropSystem_GetResBank(resources->props));
+    handle->context.propSystem = resources->props;
+    return TRUE;
+}
+
+static void FieldG3DMapper_FreeAreaResources(FieldChunkAreaResources *resources) {
+    if (resources->props != NULL) {
+        FieldPropSystem_Free(resources->props);
+        resources->props = NULL;
+    }
+    if (resources->textures != NULL) {
+        GFL_G3DResFreeTexData(resources->textures);
+        GFL_G3DResFree(resources->textures);
+        resources->textures = NULL;
+    }
+}
+
+void FieldG3DMapper_FreeAltTextures(FieldG3DMapper *mapper) {
+    int i;
+
+    for (i = 0; i < FIELD_CHUNK_AREA_CACHE_SIZE; i++) {
+        FieldG3DMapper_FreeAreaResources(&mapper->areaCache[i]);
+    }
+}
+
+// Release an area's resources only after every chunk using them has been detached.
+static void FieldG3DMapper_ReleaseUnusedAltTextures(FieldG3DMapper *mapper) {
+    int i;
+    int j;
+
+    for (i = 0; i < FIELD_CHUNK_AREA_CACHE_SIZE; i++) {
+        FieldChunkAreaResources *resources = &mapper->areaCache[i];
+
+        if (resources->textures == NULL) {
+            continue;
+        }
+        for (j = 0; j < mapper->chunkCapacity; j++) {
+            if (FieldChunk_GetMapTextures(mapper->chunkHandles[j].chunk) == resources->textures) {
+                break;
+            }
+        }
+        if (j == mapper->chunkCapacity) {
+            FieldG3DMapper_FreeAreaResources(resources);
+        }
+    }
+}
+
+// Retain one recently used mainland chunk until a new chunk needs its slot.
+static BOOL FieldG3DMapper_UpdateResidentChunks(FieldG3DMapper *mapper, FieldChunkLocator *locators) {
+    BOOL loaded = FALSE;
+    int i;
+    int j;
+
+    mapper->residencyTick++;
+    for (i = 0; i < mapper->chunkCapacity; i++) {
+        FieldChunkHandle *handle = &mapper->chunkHandles[i];
+
+        handle->wanted = FALSE;
+        if (!FieldChunkLocator_IsActive(&handle->locator)) {
+            continue;
+        }
+        for (j = 0; j < mapper->chunkCapacity; j++) {
+            if (FieldChunkLocator_IsActive(&locators[j]) &&
+                FieldChunkLocator_GetChunkID(&handle->locator) == FieldChunkLocator_GetChunkID(&locators[j])) {
+                VecFx32 pos;
+
+                FieldChunkLocator_GetPos(&locators[j], &pos);
+                FieldChunk_SetWorldPos(handle->chunk, &pos);
+                FieldChunkLocator_Disable(&locators[j]);
+                handle->wanted = TRUE;
+                handle->lastWanted = mapper->residencyTick;
+                break;
+            }
+        }
+    }
+    for (i = 0; i < mapper->chunkCapacity; i++) {
+        FieldChunkHandle *selected = NULL;
+        u32 datId;
+        VecFx32 pos;
+
+        if (!FieldChunkLocator_IsActive(&locators[i])) {
+            continue;
+        }
+        for (j = 0; j < mapper->chunkCapacity; j++) {
+            FieldChunkHandle *handle = &mapper->chunkHandles[j];
+
+            if (!FieldChunkLocator_IsActive(&handle->locator)) {
+                selected = handle;
+                break;
+            }
+            if (!handle->wanted && (selected == NULL || handle->lastWanted < selected->lastWanted)) {
+                selected = handle;
+            }
+        }
+        if (selected == NULL) {
+            continue;
+        }
+        if (FieldChunkLocator_IsActive(&selected->locator)) {
+            FieldChunk_SetActive(selected->chunk, FALSE);
+            FieldPropSystem_UnlinkChunk(selected->context.propSystem, selected->chunk);
+            FieldG3DMapper_ReleaseGroundAnimeSlot(&selected->context);
+            FieldChunk_Disable(selected->chunk);
+            FieldChunk_UnbindMapTextures(selected->chunk);
+            FieldChunk_UnbindPropResInstanceBank(selected->chunk);
+            FieldChunkLocator_Disable(&selected->locator);
+            selected->context.propSystem = mapper->propSystem;
+            FieldG3DMapper_ReleaseUnusedAltTextures(mapper);
+        }
+        datId = mapper->chunkDatIds[FieldChunkLocator_GetChunkID(&locators[i])];
+        FieldChunkLocator_GetPos(&locators[i], &pos);
+        if (datId != FIELD_CHUNK_DAT_NONE) {
+            if (!FieldG3DMapper_BindChunkTextures(mapper, selected, FieldChunkLocator_GetChunkID(&locators[i]))) {
+                continue;
+            }
+            FieldChunk_ChangeDatID(selected->chunk, datId);
+            FieldChunk_SetWorldPos(selected->chunk, &pos);
+            FieldChunk_SetActive(selected->chunk, TRUE);
+        }
+        selected->locator = locators[i];
+        selected->wanted = TRUE;
+        selected->lastWanted = mapper->residencyTick;
+        loaded = TRUE;
+    }
+    return loaded;
+}
+
 BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *locators) {
     VecFx32 pos;
     VecFx32 newPos;
@@ -540,6 +783,9 @@ BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *l
     int i;
     int j;
 
+    if (mapper->retainRecentChunk) {
+        return FieldG3DMapper_UpdateResidentChunks(mapper, locators);
+    }
     for (i = 0; i < mapper->chunkCapacity; i++) {
         if (FieldChunkLocator_IsActive(&mapper->chunkHandles[i].locator)) {
             found = FALSE;
@@ -555,12 +801,16 @@ BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *l
             if (!found) {
                 FieldChunkLocator_Disable(&mapper->chunkHandles[i].locator);
                 FieldChunk_SetActive(mapper->chunkHandles[i].chunk, FALSE);
-                FieldPropSystem_UnlinkChunk(mapper->propSystem, mapper->chunkHandles[i].chunk);
+                FieldPropSystem_UnlinkChunk(mapper->chunkHandles[i].context.propSystem, mapper->chunkHandles[i].chunk);
                 FieldG3DMapper_ReleaseGroundAnimeSlot(&mapper->chunkHandles[i].context);
                 FieldChunk_Disable(mapper->chunkHandles[i].chunk);
+                FieldChunk_UnbindMapTextures(mapper->chunkHandles[i].chunk);
+                FieldChunk_UnbindPropResInstanceBank(mapper->chunkHandles[i].chunk);
+                mapper->chunkHandles[i].context.propSystem = mapper->propSystem;
             }
         }
     }
+    FieldG3DMapper_ReleaseUnusedAltTextures(mapper);
     loaded = FALSE;
     for (i = 0; i < mapper->chunkCapacity; i++) {
         if (FieldChunkLocator_IsActive(&locators[i])) {
@@ -570,6 +820,10 @@ BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *l
                     datId = mapper->chunkDatIds[FieldChunkLocator_GetChunkID(&locators[i])];
                     FieldChunkLocator_GetPos(&locators[i], &newPos);
                     if (datId != FIELD_CHUNK_DAT_NONE) {
+                        if (!FieldG3DMapper_BindChunkTextures(mapper, &mapper->chunkHandles[j],
+                                                              FieldChunkLocator_GetChunkID(&locators[i]))) {
+                            continue;
+                        }
                         FieldChunk_ChangeDatID(mapper->chunkHandles[j].chunk, datId);
                         FieldChunk_SetWorldPos(mapper->chunkHandles[j].chunk, &newPos);
                         FieldChunk_SetActive(mapper->chunkHandles[j].chunk, TRUE);
@@ -581,6 +835,7 @@ BOOL FieldG3DMapper_UpdateChunkLoad(FieldG3DMapper *mapper, FieldChunkLocator *l
             }
         }
     }
+    FieldG3DMapper_ReleaseUnusedAltTextures(mapper);
     if (loaded == TRUE) {
         result = TRUE;
     }

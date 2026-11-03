@@ -42,18 +42,18 @@
             "step_frames": 6,
             "lanes": [
                 {
-                    "z_min": 16,
-                    "z_max": 16,
-                    "x_min": 16,
-                    "x_max": 18,
+                    "z_min": 624,
+                    "z_max": 624,
+                    "x_min": 432,
+                    "x_max": 434,
                     "dir": 1,
                     "steps": 63
                 },
                 {
-                    "z_min": 63,
-                    "z_max": 63,
-                    "x_min": 13,
-                    "x_max": 15,
+                    "z_min": 671,
+                    "z_max": 671,
+                    "x_min": 429,
+                    "x_max": 431,
                     "dir": 0,
                     "steps": 47
                 }

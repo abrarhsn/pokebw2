@@ -1610,6 +1610,18 @@ FieldActor *FindFieldActor(MMSys *mmSys, u16 id) {
     return NULL;
 }
 
+FieldActor *FindFieldActorInZone(MMSys *mmSys, u16 id, u16 zoneId) {
+    u32 index = 0;
+    FieldActor *actor;
+
+    while (NextActor(mmSys, &actor, &index) == TRUE) {
+        if (!checkBit11Set(actor) && id == GetActorUID(actor) && zoneId == GetActorZoneID(actor)) {
+            return actor;
+        }
+    }
+    return NULL;
+}
+
 FieldActor *FindPlayerFieldActor(MMSys *mmSys) {
     return FindFieldActor(mmSys, ACTOR_UID_PLAYER);
 }

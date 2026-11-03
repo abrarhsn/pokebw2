@@ -6,8 +6,8 @@
             "condition": 0,
             "direction": 6,
             "grid": {
-                "x": 21,
-                "y": 17,
+                "x": 437,
+                "y": 625,
                 "z": 0
             }
         }
@@ -21,14 +21,18 @@
             "flag": 0,
             "script": 4,
             "direction": "DIR_LEFT",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 3,
                 "height": 3
             },
             "grid": {
-                "x": 18,
-                "z": 56,
+                "x": 434,
+                "z": 664,
                 "y": 0
             }
         },
@@ -40,28 +44,32 @@
             "flag": 0,
             "script": 5,
             "direction": "DIR_LEFT",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 2,
                 "height": 2
             },
             "grid": {
-                "x": 19,
-                "z": 33,
+                "x": 435,
+                "z": 641,
                 "y": 0
             }
         }
     ],
     "warps": [
         {
-            "zone": "ZONE_CASTELIA_GATE",
+            "zone": 65535,
             "warp": 0,
             "unk4": 2,
             "transition": 36,
             "grid": {
-                "x": 216,
+                "x": 6872,
                 "y": 0,
-                "z": 264,
+                "z": 9992,
                 "width": 6,
                 "height": 1,
                 "unk0a": 0
@@ -73,9 +81,9 @@
             "unk4": 4,
             "transition": 3,
             "grid": {
-                "x": 168,
+                "x": 6824,
                 "y": 0,
-                "z": 680,
+                "z": 10408,
                 "width": 1,
                 "height": 1,
                 "unk0a": 0
@@ -87,9 +95,9 @@
             "unk4": 3,
             "transition": 3,
             "grid": {
-                "x": 344,
+                "x": 7000,
                 "y": 0,
-                "z": 584,
+                "z": 10312,
                 "width": 1,
                 "height": 1,
                 "unk0a": 0
@@ -101,9 +109,9 @@
             "unk4": 3,
             "transition": 3,
             "grid": {
-                "x": 344,
+                "x": 7000,
                 "y": 0,
-                "z": 696,
+                "z": 10424,
                 "width": 1,
                 "height": 1,
                 "unk0a": 0
@@ -115,9 +123,9 @@
             "unk4": 1,
             "transition": 36,
             "grid": {
-                "x": 200,
+                "x": 6856,
                 "y": 0,
-                "z": 1016,
+                "z": 10744,
                 "width": 8,
                 "height": 1,
                 "unk0a": 0

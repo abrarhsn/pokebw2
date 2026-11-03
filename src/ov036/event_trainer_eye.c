@@ -219,7 +219,8 @@ static BOOL EventTrainerEye_FindClashActor(Field *field, FieldActor *exclude, Tr
     actor = NULL;
     index = 0;
     while (NextActor(actorSys, &actor, &index) == TRUE) {
-        if (actor == player || (exclude != NULL && exclude == actor)) {
+        if (actor == player || (exclude != NULL && exclude == actor) ||
+            GetActorZoneID(actor) != Field_GetPlayerStateZoneID(field)) {
             continue;
         }
         dist = EventTrainerEye_CheckActorClash(encounter, actor, player, &dir);

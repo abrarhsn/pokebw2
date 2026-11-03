@@ -134,6 +134,10 @@ void FieldSubscreen_ChangeImm(FieldSubscreen *subscreen, u32 mode);
 BOOL FieldTaskManager_IsIdle(FieldTaskManager *taskManager);
 u32 FieldTaskManager_GetActiveTaskCount(FieldTaskManager *taskManager);
 MMSys *Field_GetActorSystem(Field *field);
+// Return the active or prefetched event buffer for a zone, or NULL if it is not resident.
+EventData *Field_GetResidentZoneEvents(Field *field, u16 zoneId);
+// The neighboring zone's event data at a world position, if it is resident.
+EventData *Field_GetNeighborEventsAtPosition(Field *field, const VecFx32 *pos);
 FieldCamera *Field_GetCameraSystem(Field *field);
 NoGridMapper *Field_GetNoGridMapper(Field *field);
 FieldExpObjSystem *Field_GetExpObjSystem(Field *field);

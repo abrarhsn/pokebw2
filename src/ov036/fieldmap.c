@@ -2,6 +2,7 @@
 // Additional helper and table names are our descriptive guesses.
 #include "types.h"
 #include "constants/arc.h"
+#include "constants/map_matrices.h"
 #include "constants/sound.h"
 #include "constants/zones.h"
 #include "field/encounter.h"
@@ -235,15 +236,78 @@ static const FieldMapConfig MAP_CONFIGS[] = {
 };
 // clang-format on
 
+// Older saves put these outdoor areas at the origin of their own matrices.
+static void Field_MigrateLegacyOutdoorPosition(GameSystem *gsys) {
+    PlayerState *state = GSYS_GetPlayerState(gsys);
+    MMSys *actors;
+    FieldActor *actor;
+    u32 index = 0;
+    u16 zoneId = PlayerState_GetZoneID(state);
+    s32 offsetX;
+    s32 offsetZ;
+    s32 width = 32;
+
+    if (zoneId == ZONE_LOSTLORN_FOREST) {
+        offsetX = 480;
+        offsetZ = 320;
+    } else if (zoneId == ZONE_CASTELIA_CITY_4) {
+        offsetX = 416;
+        offsetZ = 608;
+    } else if (zoneId == ZONE_MOOR_OF_ICIRRUS) {
+        offsetX = 192;
+        offsetZ = 96;
+        width = 64;
+    } else if (zoneId == ZONE_ABUNDANT_SHRINE) {
+        offsetX = 608;
+        offsetZ = 320;
+        width = 64;
+    } else if (zoneId == ZONE_DREAMYARD) {
+        offsetX = 832;
+        offsetZ = 576;
+        width = 64;
+    } else if (zoneId == ZONE_VIRBANK_COMPLEX_2) {
+        offsetX = 192;
+        offsetZ = 704;
+    } else {
+        return;
+    }
+    if (state->position.x < 0 || state->position.z < 0 || state->position.x >= width * FX32_CONST(16) ||
+        state->position.z >= FX32_CONST(64 * 16)) {
+        return;
+    }
+    state->position.x += offsetX * FX32_CONST(16);
+    state->position.z += offsetZ * FX32_CONST(16);
+    actors = GameData_GetMMSys(GSYS_GetGameData(gsys));
+    while (NextActor(actors, &actor, &index)) {
+        VecFx32 pos;
+
+        if (GetActorZoneID(actor) != zoneId) {
+            continue;
+        }
+        CopyActorWPos(actor, &pos);
+        pos.x += offsetX * FX32_CONST(16);
+        pos.z += offsetZ * FX32_CONST(16);
+        SetActorInitialGPosX(actor, FldAct_GetInitGPosX(actor) + offsetX);
+        SetActorInitialGPosZ(actor, FldAct_GetInitGPosZ(actor) + offsetZ);
+        SetActorGPosX(actor, GetGPosX(actor) + offsetX);
+        SetActorGPosZ(actor, GetGPosZ(actor) + offsetZ);
+        SetActorWPosValue(actor, &pos);
+    }
+}
+
 Field *Field_Create(GameSystem *gsys, HeapID heapId) {
     Field *field = GFL_HeapAllocate(heapId, sizeof(Field), TRUE, "fieldmap.c", 0x22b);
     u32 season = 0;
     u16 areaId;
 
     field->heapId = heapId;
+    field->prefetchedEvents = NULL;
+    field->prefetchedEventsValid = FALSE;
+    field->residentNeighborValid = FALSE;
     field->routineState = 0;
     field->gameSystem = gsys;
     field->gameData = GSYS_GetGameData(gsys);
+    Field_MigrateLegacyOutdoorPosition(gsys);
     field->zoneId = PlayerState_GetZoneID(GSYS_GetPlayerState(gsys));
     areaId = ZoneData_GetAreaID(field->zoneId);
     if (AreaData_HasSeasons(areaId)) {
@@ -270,6 +334,9 @@ Field *Field_Create(GameSystem *gsys, HeapID heapId) {
 void Field_Free(Field *field) {
     GameSystem *gsys = field->gameSystem;
 
+    if (field->prefetchedEvents != NULL) {
+        EventData_Free(field->prefetchedEvents);
+    }
     AreaData_Free(field->areaData);
     GFL_HeapFree(field);
     GSYS_SetField(gsys, NULL);
@@ -1068,6 +1135,148 @@ void Field_SuspendActorSystem(Field *field) {
     field->actorSystem = NULL;
 }
 
+// Delete only the transient actors of a zone; player and persistent actors survive.
+static void Field_RemoveZoneActors(Field *field, u16 zoneId) {
+    u32 index = 0;
+    FieldActor *actor;
+
+    while (NextActor(field->actorSystem, &actor, &index)) {
+        if (GetActorUID(actor) != ACTOR_UID_PLAYER && GetActorZoneID(actor) == zoneId && !CheckActorFlag(actor, 0x20)) {
+            DeleteActor(actor);
+        }
+    }
+}
+
+// Persistent actors may remain after their zone leaves the resident window.
+static BOOL Field_HasZoneActor(MMSys *system, u16 zoneId, u16 uid) {
+    u32 index = 0;
+    FieldActor *actor;
+
+    while (NextActor(system, &actor, &index)) {
+        if (GetActorUID(actor) == uid && GetActorZoneID(actor) == zoneId) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// Preloading is all-or-nothing: CreateNewActorByEntity assumes that an actor slot is available.
+static void Field_PrefetchNeighborActors(Field *field, u16 zoneId) {
+    u32 count = 0;
+    u32 index = 0;
+    u32 npcCount = GetZoneNPCsCount(field->prefetchedEvents);
+    u32 needed = 0;
+    ZoneNPC *npcs = GetZoneNPCs(field->prefetchedEvents);
+    FieldActor *actor;
+
+    if (field->residentNeighborValid && field->residentNeighborZone == zoneId) {
+        return;
+    }
+    if (field->residentNeighborValid && field->residentNeighborZone != field->playerZoneState.zoneId) {
+        Field_RemoveZoneActors(field, field->residentNeighborZone);
+    }
+    field->residentNeighborValid = FALSE;
+    while (NextActor(field->actorSystem, &actor, &index)) {
+        count++;
+    }
+    for (index = 0; index < npcCount; index++) {
+        if (!Field_HasZoneActor(field->actorSystem, zoneId, npcs[index].uid)) {
+            needed++;
+        }
+    }
+    if (count + needed > GetActorLimit(field->actorSystem)) {
+        return;
+    }
+    if (npcCount != 0) {
+        EventWork *eventWork = GameData_GetEventWork(field->gameData);
+
+        for (index = 0; index < npcCount; index++) {
+            if (!Field_HasZoneActor(field->actorSystem, zoneId, npcs[index].uid)) {
+                SpawnAllZoneNPCs(field->actorSystem, &npcs[index], zoneId, 1, eventWork);
+            }
+        }
+    }
+    field->residentNeighborZone = zoneId;
+    field->residentNeighborValid = TRUE;
+}
+
+EventData *Field_GetResidentZoneEvents(Field *field, u16 zoneId) {
+    EventData *active = GameData_GetEventData(field->gameData);
+
+    if (active->zoneId == zoneId) {
+        return active;
+    }
+    if (field->prefetchedEventsValid && field->prefetchedZone == zoneId) {
+        return field->prefetchedEvents;
+    }
+    return NULL;
+}
+
+EventData *Field_GetNeighborEventsAtPosition(Field *field, const VecFx32 *pos) {
+    FieldG3DMapper *mapper = field->g3DMapper;
+    u16 zoneId;
+
+    if (mapper == NULL || !mapper->retainRecentChunk || mapper->matrix == NULL ||
+        !RangeCheckChunkCoordinateWorld(mapper->matrix, pos->x, pos->z)) {
+        return NULL;
+    }
+    zoneId = GetZoneIDAtMatrixXZWorld(mapper->matrix, pos->x, pos->z);
+    if (zoneId == MATRIX_ZONE_NONE || zoneId == field->playerZoneState.zoneId) {
+        return NULL;
+    }
+    return Field_GetResidentZoneEvents(field, zoneId);
+}
+
+// Keep one neighboring mainland zone's entity file in memory without replacing the active zone's events.
+static void Field_PrefetchNeighborEvents(Field *field) {
+    FieldG3DMapper *mapper = field->g3DMapper;
+    u16 currentZone = field->playerZoneState.zoneId;
+    u8 season = GameData_GetSeason(field->gameData);
+    int i;
+
+    if (mapper == NULL || !mapper->retainRecentChunk || mapper->matrix == NULL || mapper->matrixWidth == 0 ||
+        GSYS_GetEventRunningFlag(field->gameSystem)) {
+        return;
+    }
+    // Locators in the handle array remain valid after the mapper consumes its request list.
+    for (i = mapper->chunkCapacity - 1; i >= 0; i--) {
+        FieldChunkHandle *handle = &mapper->chunkHandles[i];
+        FieldChunkLocator *locator = &handle->locator;
+        u32 cell;
+        u16 zone;
+
+        if (!handle->wanted || !FieldChunkLocator_IsActive(locator)) {
+            continue;
+        }
+        cell = FieldChunkLocator_GetChunkID(locator);
+        if (cell >= mapper->chunkIdCount) {
+            continue;
+        }
+        zone = GetZoneIDAtMatrixXZ(mapper->matrix, cell % mapper->matrixWidth, cell / mapper->matrixWidth);
+        if (zone == MATRIX_ZONE_NONE || zone == currentZone) {
+            continue;
+        }
+        if (field->prefetchedEventsValid && field->prefetchedZone == zone && field->prefetchedSeason == season) {
+            Field_PrefetchNeighborActors(field, zone);
+            return;
+        }
+        if (field->prefetchedEvents == NULL) {
+            field->prefetchedEvents = EventData_Create(field->heapId);
+        }
+        EventData_Reset(field->prefetchedEvents);
+        EventData_LoadEntities(field->prefetchedEvents, zone, season);
+        field->prefetchedZone = zone;
+        field->prefetchedSeason = season;
+        field->prefetchedEventsValid = TRUE;
+        Field_PrefetchNeighborActors(field, zone);
+        return;
+    }
+    if (field->residentNeighborValid && field->residentNeighborZone != currentZone) {
+        Field_RemoveZoneActors(field, field->residentNeighborZone);
+        field->residentNeighborValid = FALSE;
+    }
+}
+
 BOOL Field_CheckDoRealTimeLoad(Field *field) {
     EventData *eventData;
 
@@ -1075,6 +1284,7 @@ BOOL Field_CheckDoRealTimeLoad(Field *field) {
         Field_SwapZoneByMatrix(field);
         return TRUE;
     }
+    Field_PrefetchNeighborEvents(field);
     eventData = GameData_GetEventData(field->gameData);
     if (!IsEncountDataLoaded(eventData)) {
         MI_SetMainMemoryPriority(MI_PROCESSOR_ARM9);
@@ -1113,6 +1323,57 @@ BOOL Field_ShouldSwapZone(Field *field) {
     return FALSE;
 }
 
+// WORLD: the lights of the area of a zone
+static u16 Field_GetAreaLightsID(HeapID heapId, u16 zoneId, u32 season) {
+    AreaData *area = AreaData_Create(HEAPID_TAIL(heapId), ZoneData_GetAreaID(zoneId), season);
+    u16 lightsId = AreaData_GetLightsID(area);
+
+    AreaData_Free(area);
+    return lightsId;
+}
+
+// Rebind the event pointers after copying a prefetched zone's raw entity file.
+static void Field_CopyPrefetchedEvents(EventData *data, const EventData *source) {
+    u8 *counts;
+    u8 *entries;
+    u32 offset;
+
+    data->zoneId = source->zoneId;
+    data->initScriptOffset = source->initScriptOffset;
+    MI_CpuCopy8(source->cache, data->cache, sizeof(data->cache));
+    MI_CpuCopy8(source->rest, data->rest, sizeof(data->rest));
+    counts = data->cache;
+    entries = counts + 4;
+    data->initScript = counts + data->initScriptOffset;
+    data->entityCount = counts[0];
+    data->entities = (ZoneBGEntity *)entries;
+    offset = counts[0] * sizeof(ZoneBGEntity);
+    data->npcCount = counts[1];
+    data->npcs = (ZoneNPC *)(entries + offset);
+    offset += counts[1] * sizeof(ZoneNPC);
+    data->warpCount = counts[2];
+    data->warps = (ZoneWarp *)(entries + offset);
+    offset += counts[2] * sizeof(ZoneWarp);
+    data->triggerCount = counts[3];
+    data->triggers = (ZoneTrigger *)(entries + offset);
+    data->prevEntityCount = data->entityCount;
+    data->prevNpcCount = data->npcCount;
+    data->prevWarpCount = data->warpCount;
+    data->prevTriggerCount = data->triggerCount;
+}
+
+// Preserve both zones' mutable entity files while the active zone changes.
+static void Field_ExchangeResidentEvents(Field *field, EventData *active) {
+    EventData *previous = GFL_HeapAllocate(field->heapId, sizeof(EventData), TRUE, "fieldmap.c", 0);
+
+    Field_CopyPrefetchedEvents(previous, active);
+    EventData_Reset(active);
+    Field_CopyPrefetchedEvents(active, field->prefetchedEvents);
+    Field_CopyPrefetchedEvents(field->prefetchedEvents, previous);
+    field->prefetchedZone = previous->zoneId;
+    GFL_HeapFree(previous);
+}
+
 void Field_SwapZoneByMatrix(Field *field) {
     ZoneSpawnInfo *zoneState = &field->playerZoneState;
     GameData *gameData = GSYS_GetGameData(field->gameSystem);
@@ -1121,15 +1382,38 @@ void Field_SwapZoneByMatrix(Field *field) {
     MapMatrix *matrix = GetMapMatrixSystem(field->gameData);
     VecFx32 pos;
     u32 zoneId;
+    BOOL neighborResident;
 
     GFL_NetHoldScan(2);
     EncountSystem_CancelPhenomenon(field->encountSystem);
     GetPlayerZoneStateWPos(zoneState, &pos);
     zoneId = GetZoneIDAtMatrixXZWorld(matrix, pos.x, pos.z);
+    neighborResident = field->residentNeighborValid && field->residentNeighborZone == zoneId &&
+                       field->prefetchedEventsValid && field->prefetchedZone == zoneId &&
+                       field->prefetchedSeason == GameData_GetSeason(gameData);
+    // WORLD: another area's lights, which fade in over a second, as a weather's
+    {
+        u16 lightsId = Field_GetAreaLightsID(field->heapId, zoneId, GameData_GetSeason(gameData));
+
+        if (lightsId != Field_GetAreaLightsID(field->heapId, zoneState->zoneId, GameData_GetSeason(gameData))) {
+            FieldLight_ChangeData(field->lightSystem, ARCID_LIGHTS_FIELD, lightsId, 60);
+        }
+    }
     MI_SetMainMemoryPriority(MI_PROCESSOR_ARM9);
-    DeleteAllActors(actorSystem);
-    EventData_Reset(eventData);
-    EventData_LoadEntities(eventData, zoneId, GameData_GetSeason(gameData));
+    if (neighborResident) {
+        Field_ExchangeResidentEvents(field, eventData);
+        field->residentNeighborZone = zoneState->zoneId;
+    } else {
+        DeleteAllActors(actorSystem);
+        field->residentNeighborValid = FALSE;
+        EventData_Reset(eventData);
+        if (field->prefetchedEventsValid && field->prefetchedZone == zoneId &&
+            field->prefetchedSeason == GameData_GetSeason(gameData)) {
+            Field_CopyPrefetchedEvents(eventData, field->prefetchedEvents);
+        } else {
+            EventData_LoadEntities(eventData, zoneId, GameData_GetSeason(gameData));
+        }
+    }
     MI_SetMainMemoryPriority(MI_PROCESSOR_ARM7);
     ZoneChange_OnSeamless(gameData, field);
     Field_SwapZoneBGM(field, zoneId);
@@ -1148,7 +1432,9 @@ void Field_SwapZoneByMatrix(Field *field) {
     FieldScript_CallOnZoneInit(field->gameSystem, 4);
     resetRebattleTrainers(GameData_GetEventWork(gameData));
     MI_SetMainMemoryPriority(MI_PROCESSOR_ARM9);
-    Field_HotswapSpawnActors(field, gameData, actorSystem, eventData, zoneId);
+    if (!neighborResident) {
+        Field_HotswapSpawnActors(field, gameData, actorSystem, eventData, zoneId);
+    }
     FestMission_OnZoneEnter(field->gameSystem, zoneId);
     FesGimmick_OnZoneEnter(field->fesGimmick);
     MI_SetMainMemoryPriority(MI_PROCESSOR_ARM7);
@@ -1565,6 +1851,9 @@ void SetupLoadZoneMapTypeData(u16 zoneId, AreaData *area, FieldG3DMapperConfig *
         config->chunkIdCount = GetMapMatrixChunkIDCount(matrix);
         config->chunkDatIds = GetMapMatrixChunkIDs(matrix);
     }
+    config->matrix = MAP_CONFIGS[type].useMapMatrix ? matrix : NULL;
+    config->areaId = ZoneData_GetAreaID(zoneId);
+    config->retainRecentChunk = GetZoneMatrixId(zoneId) == MAP_MATRIX_OVERWORLD;
     config->isSharedTexResource = TRUE;
     config->textures.arcId = ARCID_AREA_MAP_TEX;
     config->textures.fileId = AreaData_GetTexSetID(area);

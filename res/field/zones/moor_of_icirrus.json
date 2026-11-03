@@ -1,9 +1,9 @@
 {
     "$schema": "zone.schema.json",
-    "map_type": 16,
+    "map_type": 0,
     "npc_cache": 24,
     "area": "AREA_MOOR_OF_ICIRRUS",
-    "matrix": "MAP_MATRIX_MOOR_OF_ICIRRUS",
+    "matrix": "MAP_MATRIX_OVERWORLD",
     "scripts": "SCRIPTS_MOOR_OF_ICIRRUS",
     "text": "SCRIPT_TEXT_MOOR_OF_ICIRRUS",
     "bgm": "SEQ_BGM_D_01",
@@ -22,12 +22,12 @@
     "fly_from": true,
     "cycle_surf_bgm": true,
     "entralink_warp": true,
-    "cam_bound": 183,
+    "cam_bound": 0,
     "name_icon": 15,
     "easy_level": 5,
     "fly": {
-        "x": 5,
+        "x": 197,
         "y": 0,
-        "z": 4
+        "z": 100
     }
 }

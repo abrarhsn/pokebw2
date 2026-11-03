@@ -1,0 +1,6 @@
+{
+    "$schema": "../map_model.schema.json",
+    "texture_set": null,
+    "base_model": "MAP_MODEL_OVERWORLD_2_MAP_OUTTREE",
+    "texture_preview": "MAP_TEXTURE_SET_SHARED_DANSA01A"
+}

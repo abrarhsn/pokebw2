@@ -55,10 +55,10 @@ def u32(data, offset):
     return struct.unpack_from("<I", data, offset)[0]
 
 
-def models(directory, count):
+def models(directory, count, allow_extra=False):
     """Returns the map models' directories, in archive order, and their data, which name their texture sets."""
     folders = directories("a/0/0/8", directory)
-    if len(folders) != count:
+    if len(folders) < count or (not allow_extra and len(folders) != count):
         raise ValueError(f"a/0/0/8 has {count} map models and map_models.txt {len(folders)}")
     schema = load_schema(ROOT / "res/field/maps/models/map_model.schema.json")
     return [(folder, load(folder / "data.json", schema)) for folder in folders]
@@ -1070,7 +1070,7 @@ def topology_display_list(data, model, material_index, doc, primitive, binary, s
     return bytes(commands)
 
 
-def rebuild_topology(chunk, doc, primitives, binary, mapping, name):
+def rebuild_topology(chunk, doc, primitives, binary, mapping, name, changed_positions=None):
     data = bytearray(chunk)
     model_start = u32(data, 4)
     nitro_length = u32(data, model_start + 8)
@@ -1084,13 +1084,19 @@ def rebuild_topology(chunk, doc, primitives, binary, mapping, name):
     scale = u32(data, model + 28) / 4096
     appended = bytearray()
     triangle_count = 0
-    for (shape_index, material_index), primitive in zip(calls, primitives):
+    if changed_positions is not None:
+        _, original_indices = canonical_indices(data, shapes, [shape for shape, _ in calls])
+    else:
+        original_indices = [None] * len(calls)
+    for (shape_index, material_index), primitive, indices in zip(calls, primitives, original_indices):
+        triangle_count += doc["accessors"][primitive["indices"]]["count"] // 3
+        if indices is not None and not any(changed_positions[index] for index in indices):
+            continue
         # The new display list only draws, so a shape that restores or scales matrices as it draws can't be rebuilt
         start = shapes[shape_index] + u32(data, shapes[shape_index] + 8)
         if any(op in (0x14, 0x1b) for op, _ in gpu_commands(data, start, start + u32(data, shapes[shape_index] + 12))):
             raise ValueError(f"{name}: shape {shape_index} sets matrices as it draws, so its triangles can't be "
                              "re-encoded yet; keep its topology")
-        triangle_count += doc["accessors"][primitive["indices"]]["count"] // 3
         display_list = topology_display_list(data, model, material_index, doc, primitive, binary,
                                              scale, mapping["direct"], name)
         shape = shapes[shape_index]
@@ -1134,10 +1140,12 @@ def rebuild_topology(chunk, doc, primitives, binary, mapping, name):
 def export(apicula, output, selected=None):
     archive = read_narc((ROOT / "extract/b2_us/files/a/0/0/8").read_bytes())
     textures = read_narc((ROOT / "extract/b2_us/files/a/0/1/4").read_bytes())
+    if selected is not None and any(chunk_id >= len(archive) for chunk_id in selected):
+        raise ValueError("appended map models have no original archive member to extract")
     output.mkdir(parents=True, exist_ok=True)
     texture_dirs = directories("a/0/1/4", output.parent / "textures")
-    for chunk_id, ((source, data), model_dir) in enumerate(zip(models(ROOT / "res/field/maps/models", len(archive)),
-                                                                 directories("a/0/0/8", output))):
+    originals = models(ROOT / "res/field/maps/models", len(archive), allow_extra=True)[:len(archive)]
+    for chunk_id, ((source, data), model_dir) in enumerate(zip(originals, directories("a/0/0/8", output))):
         if selected is not None and chunk_id not in selected:
             continue
         texture_id = texture_set(data, str(source))
@@ -1231,8 +1239,19 @@ def pack(directory, game, output):
     archive = read_narc(source.read_bytes())
     texture_archive = read_narc((ROOT / "extract" / version / "files/a/0/1/4").read_bytes())
     texture_dirs = directories("a/0/1/4")
-    for chunk_id, (model_dir, data) in enumerate(models(directory, len(archive))):
-        original = archive[chunk_id]
+    original_count = len(archive)
+    for chunk_id, (model_dir, data) in enumerate(models(directory, original_count, allow_extra=True)):
+        if chunk_id < original_count:
+            if "base_model" in data:
+                raise ValueError(f"{model_dir}: base_model is only allowed for appended map models")
+            original = archive[chunk_id]
+        else:
+            if "base_model" not in data:
+                raise ValueError(f"{model_dir}: an appended map model needs base_model")
+            base_id = value(data["base_model"], str(model_dir))
+            if base_id >= original_count:
+                raise ValueError(f"{model_dir}: base_model must name an original archive member")
+            original = archive[base_id]
         name = model_name(model_bytes(original))
         mapping = {"direct": not data.get("transformed", False)}
         doc, primitives, binary = mesh_primitives(model_dir, name)
@@ -1249,11 +1268,28 @@ def pack(directory, game, output):
         except ValueError as error:
             if not any(reason in str(error) for reason in FALLBACK_ERRORS):
                 raise
-            edited = rebuild_topology(bound, doc, primitives, binary, mapping, name)
-        archive[chunk_id] = edited
-        archive[chunk_id] = patch_materials(archive[chunk_id], doc, primitives, name)
-        archive[chunk_id] = patch_terrains(archive[chunk_id], model_dir)
-        archive[chunk_id] = patch_props(archive[chunk_id], doc)
+            changed_positions = None
+            if data.get("compact_position_edits"):
+                positions, direct, _ = positions_from_gltf(model_dir, name, model_bytes(original), mapping)
+                if not direct or not mapping["direct"]:
+                    raise ValueError(f"{name}: compact position edits require a direct model")
+                nitro = model_bytes(original)
+                block = u32(nitro, 16)
+                model = block + dictionary_offsets(nitro, block + 8)[0]
+                shape_dict = model + u32(nitro, model + 12)
+                shapes = [shape_dict + offset for offset in dictionary_offsets(nitro, shape_dict)]
+                baseline = decoded_positions(nitro, shapes, draw_order(nitro, model), u32(nitro, model + 28) / 4096)
+                changed_positions = [any(abs(a - b) > 0.001 for a, b in zip(pos, old))
+                                     for pos, old in zip(positions, baseline)]
+                bound = patch_uvs(bound, doc, primitives, binary, name)
+            edited = rebuild_topology(bound, doc, primitives, binary, mapping, name, changed_positions)
+        edited = patch_materials(edited, doc, primitives, name)
+        edited = patch_terrains(edited, model_dir)
+        edited = patch_props(edited, doc)
+        if chunk_id < original_count:
+            archive[chunk_id] = edited
+        else:
+            archive.append(edited)
     dest = Path(output)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.unlink(missing_ok=True)

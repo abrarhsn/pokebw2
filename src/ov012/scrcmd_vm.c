@@ -1078,7 +1078,7 @@ BOOL Scrcmd_Vm_RTCallGlobalAsync(VM *vm, FieldScriptEnv *env) {
     FieldScriptEnv_GetGameSystem(env);
     work = FieldScriptEnv_GetScriptWork(env);
     scriptId = VM_Read16(vm);
-    zoneId = FieldScriptEnv_GetZoneID(env);
+    zoneId = GetScriptEnvZoneID(env);
     ScriptWork_AddVM(work, zoneId, scriptId);
     return TRUE;
 }
@@ -1108,7 +1108,7 @@ BOOL Scrcmd_Vm_RTCallGlobal(VM *vm, FieldScriptEnv *env) {
     work = FieldScriptEnv_GetScriptWork(env);
     scriptId = VM_Read16(vm);
     if (!FieldScriptEnv_IsReducedFeatureLevel(env)) {
-        index = ScriptWork_AddVM(work, FieldScriptEnv_GetZoneID(env), scriptId);
+        index = ScriptWork_AddVM(work, GetScriptEnvZoneID(env), scriptId);
         SetScrEnvVMIndex(env, index);
         FieldScriptEnv_Save(env);
         VM_SetNativeCallback(vm, ScriptNative_WaitFinishSubScript);

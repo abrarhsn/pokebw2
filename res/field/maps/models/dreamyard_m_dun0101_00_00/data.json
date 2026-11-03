@@ -1,4 +1,5 @@
 {
     "$schema": "../map_model.schema.json",
-    "texture_set": "MAP_TEXTURE_SET_DREAMYARD"
+    "texture_set": "MAP_TEXTURE_SET_DREAMYARD",
+    "compact_position_edits": true
 }

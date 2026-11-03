@@ -91,6 +91,14 @@ struct Field {
     FieldDispControl *dispControl;
     CasteliaRush *casteliaRush;
     FieldLensFlare *lensFlare;
+    // Neighboring zone's entity data, kept separate from the active mutable event buffer.
+    EventData *prefetchedEvents;
+    u16 prefetchedZone;
+    u8 prefetchedSeason;
+    BOOL prefetchedEventsValid;
+    // The neighboring zone whose NPCs have been spawned alongside the active zone.
+    u16 residentNeighborZone;
+    BOOL residentNeighborValid;
 };
 
 UnionEffect *Field_GetUnionEff(Field *field);

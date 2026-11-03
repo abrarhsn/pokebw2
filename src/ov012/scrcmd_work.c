@@ -81,6 +81,15 @@ MMSys *GetScrEnvActorSys(FieldScriptEnv *env) {
     return env->subwork->mmSys;
 }
 
+FieldActor *FieldScriptEnv_FindActor(FieldScriptEnv *env, u16 id) {
+    MMSys *system = GetScrEnvActorSys(env);
+
+    if (id >= ACTOR_UID_FIRST_RESERVED) {
+        return FindFieldActor(system, id);
+    }
+    return FindFieldActorInZone(system, id, env->args.zoneId);
+}
+
 ScriptWork *FieldScriptEnv_GetScriptWork(FieldScriptEnv *env) {
     return env->subwork->work;
 }

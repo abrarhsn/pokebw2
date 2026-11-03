@@ -25,6 +25,7 @@
 #include "gfl/heap.h"
 #include "gfl/sound.h"
 #include "nitro/fx.h"
+#include "save/event_work.h"
 #include "system/game_data.h"
 #include "system/game_system.h"
 #include "system/vm.h"
@@ -94,6 +95,14 @@ static const u32 ACMD_QUEUE_TURN_S_8F[2] = { ACMD(ACMD_STAY_WALK_8F + DIR_DOWN, 
 static const u32 ACMD_QUEUE_TURN_W_8F[2] = { ACMD(ACMD_STAY_WALK_8F + DIR_LEFT, 1), ACMD_END };
 static const u32 ACMD_QUEUE_TURN_E_8F[2] = { ACMD(ACMD_STAY_WALK_8F + DIR_RIGHT, 1), ACMD_END };
 
+// Player and follower IDs are global; ordinary NPC IDs are local to the script's zone.
+static FieldActor *FindScriptActorInZone(MMSys *mmSys, FieldScriptEnv *env, u16 id) {
+    if (id >= SCRIPT_ACTOR_SELF) {
+        return FindFieldActor(mmSys, id);
+    }
+    return FindFieldActorInZone(mmSys, id, env->args.zoneId);
+}
+
 static FieldActor *FindScriptActor(FieldScriptEnv *env, u16 id) {
     FieldActor *actor;
     MMSys *mmSys = GetScrEnvActorSys(env);
@@ -107,7 +116,7 @@ static FieldActor *FindScriptActor(FieldScriptEnv *env, u16 id) {
         actor = ScriptWork_GetParentActor(work);
 #endif
     } else {
-        actor = FindFieldActor(mmSys, id);
+        actor = FindScriptActorInZone(mmSys, env, id);
     }
     return actor;
 }
@@ -468,7 +477,7 @@ BOOL Scrcmd_FieldActor_ActorGetMoveCode(VM *vm, FieldScriptEnv *env) {
     u16 *result = ScriptReadVar(vm, env);
 
     *result = 0;
-    *result = GetActorMoveCode(FindFieldActor(mmSys, ScriptReadAny(vm, env)));
+    *result = GetActorMoveCode(FindScriptActorInZone(mmSys, env, ScriptReadAny(vm, env)));
     return FALSE;
 }
 
@@ -477,13 +486,13 @@ BOOL Scrcmd_FieldActor_ActorSetMoveCode(VM *vm, FieldScriptEnv *env) {
     u16 id = ScriptReadAny(vm, env);
     u16 moveCode = ScriptReadAny(vm, env);
 
-    ChangeActorMoveCodeSeq(FindFieldActor(mmSys, id), moveCode);
+    ChangeActorMoveCodeSeq(FindScriptActorInZone(mmSys, env, id), moveCode);
     return FALSE;
 }
 
 BOOL Scrcmd_FieldActor_ActorGetGPos(VM *vm, FieldScriptEnv *env) {
     MMSys *mmSys = GetScrEnvActorSys(env);
-    FieldActor *actor = FindFieldActor(mmSys, ScriptReadAny(vm, env));
+    FieldActor *actor = FindScriptActorInZone(mmSys, env, ScriptReadAny(vm, env));
     u16 *x = ScriptReadVar(vm, env);
     u16 *z = ScriptReadVar(vm, env);
 
@@ -519,7 +528,7 @@ BOOL Scrcmd_FieldActor_ActorNew(VM *vm, FieldScriptEnv *env) {
     u16 id = ScriptReadAny(vm, env);
     u16 objCode = ScriptReadAny(vm, env);
     u16 moveCode = ScriptReadAny(vm, env);
-    u16 zoneId = Field_GetPlayerStateZoneID(fieldWork->field);
+    u16 zoneId = env->args.zoneId;
     MMSys *mmSys = GetScrEnvActorSys(env);
     FieldActor *actor = CreateNewActorByParam(
         mmSys, x, z, dir, id, ResolvePossibleWKOBJCODE(GameData_GetEventWork(FieldScriptEnv_GetGameData(env)), objCode),
@@ -533,7 +542,7 @@ BOOL Scrcmd_FieldActor_ActorNew(VM *vm, FieldScriptEnv *env) {
 
 BOOL Scrcmd_FieldActor_ActorDelete(VM *vm, FieldScriptEnv *env) {
     MMSys *mmSys = GetScrEnvActorSys(env);
-    FieldActor *actor = FindFieldActor(mmSys, ScriptReadAny(vm, env));
+    FieldActor *actor = FindScriptActorInZone(mmSys, env, ScriptReadAny(vm, env));
 
     if (actor != NULL) {
         DeleteActor(actor);
@@ -541,21 +550,45 @@ BOOL Scrcmd_FieldActor_ActorDelete(VM *vm, FieldScriptEnv *env) {
     return FALSE;
 }
 
+// A prefetched NPC may already exist; the underlying UID spawner assumes a valid entry and a free slot.
+static FieldActor *FieldScript_AddZoneActor(MMSys *system, EventData *events, EventWork *work, u16 zoneId, u16 uid) {
+    FieldActor *actor;
+    ZoneNPC *npcs;
+    u32 actorIndex = 0;
+    u32 actorCount = 0;
+    u32 npcCount;
+    u32 i;
+
+    while (NextActor(system, &actor, &actorIndex)) {
+        if (GetActorUID(actor) == uid && GetActorZoneID(actor) == zoneId) {
+            return actor;
+        }
+        actorCount++;
+    }
+    if (events == NULL || actorCount >= GetActorLimit(system)) {
+        return NULL;
+    }
+    npcs = GetZoneNPCs(events);
+    npcCount = GetZoneNPCsCount(events);
+    for (i = 0; i < npcCount; i++) {
+        if (npcs[i].uid == uid && npcs[i].scrId != 0xffff && !EventWork_FlagGet(work, npcs[i].spawnFlag)) {
+            return SpawnZoneNPCByUID(system, &npcs[i], zoneId, 1, work, uid);
+        }
+    }
+    return NULL;
+}
+
 BOOL Scrcmd_FieldActor_ActorAdd(VM *vm, FieldScriptEnv *env) {
     MMSys *mmSys = GetScrEnvActorSys(env);
     GameData *gameData = FieldScriptEnv_GetGameData(env);
-    EventData *eventData = GameData_GetEventData(gameData);
-    u32 count = GetZoneNPCsCount(eventData);
-    u16 zoneId = PlayerState_GetZoneID(GameData_GetPlayerState(gameData));
+    Field *field = GSYS_GetField(FieldScriptEnv_GetGameSystem(env));
+    u16 zoneId = env->args.zoneId;
+    EventData *eventData = Field_GetResidentZoneEvents(field, zoneId);
     u16 uid = ScriptReadAny(vm, env);
+    FieldActor *actor = FieldScript_AddZoneActor(mmSys, eventData, GameData_GetEventWork(gameData), zoneId, uid);
 
-    if (count != 0) {
-        EventWork *eventWork = GameData_GetEventWork(gameData);
-        FieldActor *actor = SpawnZoneNPCByUID(mmSys, GetZoneNPCs(eventData), zoneId, count, eventWork, uid);
-
-        if (actor != NULL) {
-            DisableActorMovement(actor);
-        }
+    if (actor != NULL) {
+        DisableActorMovement(actor);
     }
     return FALSE;
 }
@@ -566,7 +599,7 @@ BOOL Scrcmd_FieldActor_ActorSetGPos(VM *vm, FieldScriptEnv *env) {
     s16 y = ScriptReadAny(vm, env);
     s16 z = ScriptReadAny(vm, env);
     u16 dir = ScriptReadAny(vm, env);
-    FieldActor *actor = FindFieldActor(GetScrEnvActorSys(env), id);
+    FieldActor *actor = FindScriptActorInZone(GetScrEnvActorSys(env), env, id);
 
     if (actor != NULL) {
         SetActorGPos(actor, x, y, z, dir);
@@ -577,7 +610,7 @@ BOOL Scrcmd_FieldActor_ActorSetGPos(VM *vm, FieldScriptEnv *env) {
 BOOL Scrcmd_FieldActor_ActorGetSpawnFlag(VM *vm, FieldScriptEnv *env) {
     u16 id = ScriptReadAny(vm, env);
     u16 *result = ScriptReadVar(vm, env);
-    FieldActor *actor = FindFieldActor(GetScrEnvActorSys(env), id);
+    FieldActor *actor = FindScriptActorInZone(GetScrEnvActorSys(env), env, id);
 
     if (actor != NULL) {
         *result = GetActorSpawnFlag(actor);
@@ -589,7 +622,7 @@ BOOL Scrcmd_FieldActor_ActorGetUserParam(VM *vm, FieldScriptEnv *env) {
     u16 id = ScriptReadAny(vm, env);
     u16 index = ScriptReadAny(vm, env);
     u16 *result = ScriptReadVar(vm, env);
-    FieldActor *actor = FindFieldActor(GetScrEnvActorSys(env), id);
+    FieldActor *actor = FindScriptActorInZone(GetScrEnvActorSys(env), env, id);
 
     if (index <= 2 && actor != NULL) {
         *result = GetActorUserParam(actor, index);
@@ -599,7 +632,7 @@ BOOL Scrcmd_FieldActor_ActorGetUserParam(VM *vm, FieldScriptEnv *env) {
 
 BOOL Scrcmd_FieldActor_SetActorZoneDeleteOff(VM *vm, FieldScriptEnv *env) {
     u16 id = ScriptReadAny(vm, env);
-    FieldActor *actor = FindFieldActor(GetScrEnvActorSys(env), id);
+    FieldActor *actor = FindScriptActorInZone(GetScrEnvActorSys(env), env, id);
 
     if (actor != NULL) {
         SetActorFlag32(actor, TRUE);
@@ -921,7 +954,7 @@ BOOL Scrcmd_FieldActor_ActorJumpToGPos(VM *vm, FieldScriptEnv *env) {
     u16 z = ScriptReadAny(vm, env);
     MMSys *mmSys = GetScrEnvActorSys(env);
     GameSystem *gsys = FieldScriptEnv_GetGameSystem(env);
-    FieldActor *actor = FindFieldActor(mmSys, id);
+    FieldActor *actor = FindScriptActorInZone(mmSys, env, id);
 
     CopyActorWPos(actor, &start);
     end.x = GRID_CENTER(x);
@@ -980,7 +1013,7 @@ BOOL Scrcmd_FieldActor_PlayerGetRailPos(VM *vm, FieldScriptEnv *env) {
 
 BOOL Scrcmd_FieldActor_ActorGetRailPos(VM *vm, FieldScriptEnv *env) {
     MMSys *mmSys = GetScrEnvActorSys(env);
-    FieldActor *actor = FindFieldActor(mmSys, ScriptReadAny(vm, env));
+    FieldActor *actor = FindScriptActorInZone(mmSys, env, ScriptReadAny(vm, env));
     u16 *lineIndex = ScriptReadVar(vm, env);
     u16 *front = ScriptReadVar(vm, env);
     u16 *side = ScriptReadVar(vm, env);
@@ -993,7 +1026,7 @@ BOOL Scrcmd_FieldActor_ActorPlayRailSlipdown(VM *vm, FieldScriptEnv *env) {
     GameSystem *gsys = FieldScriptEnv_GetGameSystem(env);
     ScriptWork *work = FieldScriptEnv_GetScriptWork(env);
     MMSys *mmSys = GetScrEnvActorSys(env);
-    FieldActor *actor = FindFieldActor(mmSys, ScriptReadAny(vm, env));
+    FieldActor *actor = FindScriptActorInZone(mmSys, env, ScriptReadAny(vm, env));
     ScriptFieldWork *fieldWork = ScriptWork_GetFieldWork(work);
 
     ScriptWork_CallEvent(work, EventRailSlipdown_CreateActor(gsys, fieldWork->field, actor));
@@ -1017,7 +1050,7 @@ BOOL Scrcmd_FieldActor_PlayerSetRailPos(VM *vm, FieldScriptEnv *env) {
 BOOL Scrcmd_FieldActor_ActorSetRailPos(VM *vm, FieldScriptEnv *env) {
     RailPosition railPos;
     MMSys *mmSys = GetScrEnvActorSys(env);
-    FieldActor *actor = FindFieldActor(mmSys, ScriptReadAny(vm, env));
+    FieldActor *actor = FindScriptActorInZone(mmSys, env, ScriptReadAny(vm, env));
     u16 lineIndex = ScriptReadAny(vm, env);
     u16 front = ScriptReadAny(vm, env);
     u16 side = ScriptReadAny(vm, env);
@@ -1033,7 +1066,7 @@ BOOL Scrcmd_FieldActor_ActorPlayTeleportSeq(VM *vm, FieldScriptEnv *env) {
     VecFx32 offset;
     ScriptWork *work = FieldScriptEnv_GetScriptWork(env);
     u16 id = ScriptReadAny(vm, env);
-    FieldActor *actor = FindFieldActor(GetScrEnvActorSys(env), id);
+    FieldActor *actor = FindScriptActorInZone(GetScrEnvActorSys(env), env, id);
     ScriptFieldWork *fieldWork = ScriptWork_GetFieldWork(work);
     Field *field = fieldWork->field;
     FieldTaskManager *taskManager = Field_GetTaskManager(field);
@@ -1057,7 +1090,7 @@ BOOL Scrcmd_FieldActor_ActorFallDownToXZ(VM *vm, FieldScriptEnv *env) {
     u16 x = ScriptReadAny(vm, env);
     u16 z = ScriptReadAny(vm, env);
     u16 dir = ScriptReadAny(vm, env);
-    FieldActor *actor = FindFieldActor(GetScrEnvActorSys(env), id);
+    FieldActor *actor = FindScriptActorInZone(GetScrEnvActorSys(env), env, id);
     ScriptFieldWork *fieldWork = ScriptWork_GetFieldWork(work);
     Field *field = fieldWork->field;
     FieldTaskManager *taskManager = Field_GetTaskManager(field);

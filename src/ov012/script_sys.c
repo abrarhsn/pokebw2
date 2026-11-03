@@ -208,11 +208,6 @@ static const struct OpcodePermissions EVCMD_PERM_TABLE[] = {
     { 0, 0, 0 }, { 1, 1, 1 }, { 1, 1, 1 },                                                                  // 0x2f0
 };
 
-struct EventScriptCallData {
-    ScriptWork *work;
-    FieldScriptSupervisor *supervisor;
-};
-
 GameEvent *EventScriptCall_Create(GameSystem *gsys, u16 scriptId, FieldActor *actor, HeapID heapId) {
     return EventScriptCall_CreateCore(gsys, heapId, scriptId, actor, 0);
 }

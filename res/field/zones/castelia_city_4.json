@@ -1,9 +1,9 @@
 {
     "$schema": "zone.schema.json",
-    "map_type": 16,
+    "map_type": 0,
     "npc_cache": 24,
     "area": "AREA_CASTELIA_CITY_2",
-    "matrix": "MAP_MATRIX_CASTELIA_CITY_4",
+    "matrix": "MAP_MATRIX_OVERWORLD",
     "scripts": "SCRIPTS_CASTELIA_CITY_4",
     "text": "SCRIPT_TEXT_CASTELIA_CITY_4",
     "bgm": "SEQ_BGM_C_03",
@@ -22,12 +22,12 @@
     "fly_from": true,
     "cycle_surf_bgm": true,
     "entralink_warp": true,
-    "cam_bound": 418,
+    "cam_bound": 0,
     "name_icon": 15,
     "easy_level": 2,
     "fly": {
-        "x": 0,
+        "x": 416,
         "y": 0,
-        "z": 0
+        "z": 608
     }
 }

@@ -846,7 +846,7 @@
             }
         },
         {
-            "zone": "ZONE_CASTELIA_GATE",
+            "zone": 65535,
             "warp": 2,
             "unk4": 1,
             "transition": 4,

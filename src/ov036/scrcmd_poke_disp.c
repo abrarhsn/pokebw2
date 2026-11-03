@@ -387,7 +387,7 @@ BOOL Scrcmd_PokeDisp_StartSwapNpcEvent(VM *vm, FieldScriptEnv *env) {
     GSYS_GetField(gsys);
     actorId = ScriptReadAny(vm, env);
     uid = ScriptReadAny(vm, env);
-    CopyActorWPos(FindFieldActor(GetScrEnvActorSys(env), actorId), &pos);
+    CopyActorWPos(FieldScriptEnv_FindActor(env, actorId), &pos);
     event = SpPokeEvent_CreateAppear(gsys, &pos, actorId, uid);
     if (event == NULL) {
         return TRUE;

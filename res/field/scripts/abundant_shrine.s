@@ -81,7 +81,7 @@ Script_3:
     // "Oh! Hey!\nWait a second.[f000]븁\u0000"
     ActorMsg MSGFILE_SCRIPT, AbundantShrine_Text_OhHeyWaitSecond, 11, 5, 0
     MsgWinCloseAll
-    ActorWalkRoute 11, 22, 13, 1, 8, 0
+    ActorWalkRoute 11, 630, 333, 1, 8, 0
     ActorCmdWait
     VMSleep 8
     ActorCmdExec 11, Movement_04A8
@@ -104,14 +104,14 @@ Script_3:
     ActorMsg MSGFILE_SCRIPT, AbundantShrine_Text_TheySayRevealGlass, 11, 5, 0
     MsgWinCloseAll
     VMStackPush 0x8021
-    VMStackPushConst 22
+    VMStackPushConst 630
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_01E9
-    ActorWalkRoute 11, 23, 24, 1, 8, 0
+    ActorWalkRoute 11, 631, 344, 1, 8, 0
     VMJump L_01F7
 
 L_01E9:
-    ActorWalkRoute 11, 22, 24, 1, 8, 0
+    ActorWalkRoute 11, 630, 344, 1, 8, 0
 
 L_01F7:
     VMSleep 16
@@ -134,10 +134,10 @@ Script_5:
     ActorsPauseAll
     EvCameraInit
     EvCameraUnbind
-    EvCameraMoveTo 9688, 0, 0xed000, 0x338000, 32795, 0x318000, 40
+    EvCameraMoveTo 9688, 0, 0xed000, 0x2938000, 32795, 0x1718000, 40
     PlayerGetGPos 0x8021, 0x8022
     VMStackPush 0x8021
-    VMStackPushConst 50
+    VMStackPushConst 658
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_026D
     ActorCmdExec 255, Movement_0364

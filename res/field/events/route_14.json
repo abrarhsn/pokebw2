@@ -484,7 +484,7 @@
     ],
     "warps": [
         {
-            "zone": "ZONE_ABUNDANT_SHRINE",
+            "zone": 65535,
             "warp": 0,
             "unk4": 2,
             "transition": 4,

@@ -73,12 +73,12 @@ L_00CA:
 L_00DB:
     FlagReset EVENT_FLAG_0x0355
     ActorAdd 7
-    ActorSetGPos 7, 19, 0, 0x8023, 2
-    ActorMoveLinear 7, 13, 0, 0x8023, 24
+    ActorSetGPos 7, 851, 0, 0x8023, 2
+    ActorMoveLinear 7, 845, 0, 0x8023, 24
     VMSleep 16
-    ActorMoveLinear 7, 12, 0, 0x8023, 8
+    ActorMoveLinear 7, 844, 0, 0x8023, 8
     VMSleep 48
-    ActorMoveLinear 7, 13, 0, 0x8023, 16
+    ActorMoveLinear 7, 845, 0, 0x8023, 16
     VMSleep 16
     VMStackPush 0x8020
     VMStackPushConst 23
@@ -103,7 +103,7 @@ L_0149:
 L_015A:
     ActorCmdExec 7, Movement_06F4
     ActorCmdWait
-    ActorMoveLinear 7, 19, 0, 0x8023, 18
+    ActorMoveLinear 7, 851, 0, 0x8023, 18
     ActorDelete 7
     FlagSet EVENT_FLAG_0x0355
     WorkSetConst EVENT_WORK_0x410c, 1
@@ -138,8 +138,8 @@ L_01BA:
 L_01CB:
     FlagReset EVENT_FLAG_0x0355
     ActorAdd 7
-    ActorSetGPos 7, 44, 2, 22, 2
-    ActorMoveLinear 7, 26, 2, 22, 48
+    ActorSetGPos 7, 876, 2, 598, 2
+    ActorMoveLinear 7, 858, 2, 598, 48
     ActorDelete 7
     FlagSet EVENT_FLAG_0x0355
     WorkSetConst EVENT_WORK_0x410c, 2
@@ -175,29 +175,29 @@ L_0246:
     FlagReset EVENT_FLAG_0x0355
     ActorAdd 7
     VMStackPush 0x8022
-    VMStackPushConst 26
+    VMStackPushConst 858
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_027F
-    ActorSetGPos 7, 17, 4, 12, 3
-    ActorMoveLinear 7, 35, 4, 11, 48
+    ActorSetGPos 7, 849, 4, 588, 3
+    ActorMoveLinear 7, 867, 4, 587, 48
     VMJump L_02DB
 
 L_027F:
     VMStackPush 0x8022
-    VMStackPushConst 27
+    VMStackPushConst 859
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_02B0
-    ActorSetGPos 7, 18, 4, 12, 3
-    ActorMoveLinear 7, 36, 4, 11, 48
+    ActorSetGPos 7, 850, 4, 588, 3
+    ActorMoveLinear 7, 868, 4, 587, 48
     VMJump L_02DB
 
 L_02B0:
     VMStackPush 0x8022
-    VMStackPushConst 28
+    VMStackPushConst 860
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_02DB
-    ActorSetGPos 7, 19, 4, 12, 3
-    ActorMoveLinear 7, 37, 4, 11, 48
+    ActorSetGPos 7, 851, 4, 588, 3
+    ActorMoveLinear 7, 869, 4, 587, 48
 
 L_02DB:
     ActorDelete 7
@@ -235,20 +235,20 @@ L_0336:
     FlagReset EVENT_FLAG_0x0355
     ActorAdd 7
     VMStackPush 0x8022
-    VMStackPushConst 35
+    VMStackPushConst 867
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_036F
-    ActorSetGPos 7, 44, 4, 11, 2
-    ActorMoveLinear 7, 26, 4, 11, 48
+    ActorSetGPos 7, 876, 4, 587, 2
+    ActorMoveLinear 7, 858, 4, 587, 48
     VMJump L_039A
 
 L_036F:
     VMStackPush 0x8022
-    VMStackPushConst 36
+    VMStackPushConst 868
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_039A
-    ActorSetGPos 7, 45, 4, 11, 2
-    ActorMoveLinear 7, 27, 4, 11, 48
+    ActorSetGPos 7, 877, 4, 587, 2
+    ActorMoveLinear 7, 859, 4, 587, 48
 
 L_039A:
     ActorDelete 7
@@ -286,20 +286,20 @@ L_03F5:
     FlagReset EVENT_FLAG_0x0355
     ActorAdd 7
     VMStackPush 0x8022
-    VMStackPushConst 22
+    VMStackPushConst 854
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_042E
-    ActorSetGPos 7, 13, 4, 20, 3
-    ActorMoveLinear 7, 26, 4, 15, 36
+    ActorSetGPos 7, 845, 4, 596, 3
+    ActorMoveLinear 7, 858, 4, 591, 36
     VMJump L_0459
 
 L_042E:
     VMStackPush 0x8022
-    VMStackPushConst 23
+    VMStackPushConst 855
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_0459
-    ActorSetGPos 7, 14, 4, 20, 3
-    ActorMoveLinear 7, 27, 4, 15, 36
+    ActorSetGPos 7, 846, 4, 596, 3
+    ActorMoveLinear 7, 859, 4, 591, 36
 
 L_0459:
     ActorCmdExec 7, Movement_06FC
@@ -332,18 +332,18 @@ L_04B0:
     ActorCmdExec 7, Movement_06F4
     ActorCmdWait
     VMStackPush 0x8022
-    VMStackPushConst 22
+    VMStackPushConst 854
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_04DF
-    ActorMoveLinear 7, 31, 4, 15, 12
+    ActorMoveLinear 7, 863, 4, 591, 12
     VMJump L_04FE
 
 L_04DF:
     VMStackPush 0x8022
-    VMStackPushConst 23
+    VMStackPushConst 855
     VMStackCmp CMP_EQ
     VMJumpIf CMP_STACK, L_04FE
-    ActorMoveLinear 7, 32, 4, 15, 12
+    ActorMoveLinear 7, 864, 4, 591, 12
 
 L_04FE:
     ActorDelete 7
@@ -380,10 +380,10 @@ L_0548:
 L_0559:
     FlagReset EVENT_FLAG_0x0355
     ActorAdd 7
-    ActorSetGPos 7, 56, 4, 12, 2
-    ActorMoveLinear 7, 50, 4, 12, 18
+    ActorSetGPos 7, 888, 4, 588, 2
+    ActorMoveLinear 7, 882, 4, 588, 18
     VMSleep 32
-    ActorMoveLinear 7, 48, 4, 12, 6
+    ActorMoveLinear 7, 880, 4, 588, 6
     VMStackPush 0x8020
     VMStackPushConst 23
     VMStackCmp CMP_EQ

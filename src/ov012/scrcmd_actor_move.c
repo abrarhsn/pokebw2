@@ -47,7 +47,7 @@ BOOL Scrcmd_ActorMove_ActorMoveToHeight(VM *vm, FieldScriptEnv *env) {
     data = GameEvent_GetData(event);
     data->frames = frames;
     data->frame = 0;
-    actor = FindFieldActor(Field_GetActorSystem(GSYS_GetField(gsys)), actorId);
+    actor = FieldScriptEnv_FindActor(env, actorId);
     CopyActorWPos(actor, &data->pos);
     data->actor = actor;
     SetActorMovementFlag(actor, ACTOR_MOVEMENT_FLAG_HIDE_SHADOW);
@@ -86,7 +86,7 @@ BOOL Scrcmd_ActorMove_ActorHoldPos(VM *vm, FieldScriptEnv *env) {
     event = GameEvent_Create(gsys, NULL, EventActorHold_Callback, sizeof(ActorHoldData));
     data = GameEvent_GetData(event);
     data->frame = 0;
-    actor = FindFieldActor(Field_GetActorSystem(GSYS_GetField(gsys)), actorId);
+    actor = FieldScriptEnv_FindActor(env, actorId);
     CopyActorWPos(actor, &data->pos);
     data->actor = actor;
     ScriptWork_CallEvent(work, event);

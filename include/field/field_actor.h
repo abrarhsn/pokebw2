@@ -14,6 +14,8 @@
 
 // The UID of the player's actor
 #define ACTOR_UID_PLAYER 0xff
+// Script-reserved actor IDs begin here; regular map NPC IDs are below this range.
+#define ACTOR_UID_FIRST_RESERVED 0xf1
 // The actor that follows the player (MOVE_CODE_FOLLOW_PLAYER), for EventActionCall_Create
 #define ACTOR_UID_FOLLOWER 0xf2
 
@@ -399,6 +401,8 @@ void CopyActorPosAllAdd(FieldActor *actor, VecFx32 *dest);
 void SetActorWPosValue(FieldActor *actor, const VecFx32 *pos);
 // The actor with an ID, or NULL
 FieldActor *FindFieldActor(MMSys *mmSys, u16 id);
+// A zone-local UID can be reused in another resident zone.
+FieldActor *FindFieldActorInZone(MMSys *mmSys, u16 id, u16 zoneId);
 FieldActor *FindActorByMoveCode(MMSys *mmSys, u16 code);
 // The other Trainer of a double battle pair
 FieldActor *FindPairedTrainerActor(FieldActor *actor);

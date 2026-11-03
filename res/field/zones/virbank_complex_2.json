@@ -3,7 +3,7 @@
     "map_type": 0,
     "npc_cache": 24,
     "area": "AREA_VIRBANK_CITY",
-    "matrix": "MAP_MATRIX_VIRBANK_COMPLEX_2",
+    "matrix": "MAP_MATRIX_OVERWORLD",
     "scripts": "SCRIPTS_VIRBANK_COMPLEX_2",
     "text": "SCRIPT_TEXT_VIRBANK_COMPLEX_2",
     "bgm": "SEQ_BGM_SW_D_23",
@@ -22,12 +22,12 @@
     "fly_from": true,
     "cycle_surf_bgm": true,
     "entralink_warp": true,
-    "cam_bound": 256,
+    "cam_bound": 0,
     "name_icon": 15,
     "easy_level": 1,
     "fly": {
-        "x": 5,
+        "x": 197,
         "y": 0,
-        "z": 4
+        "z": 708
     }
 }

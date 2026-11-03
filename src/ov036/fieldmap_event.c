@@ -344,6 +344,16 @@ static GameEvent *FieldEventProvider_Grid_CheckForEvent(GameSystem *gsys, Field 
         if (scrId != SCRID_NONE) {
             return EventScriptCall_Create(gsys, scrId, NULL, wk.heapId);
         }
+        {
+            EventData *neighbor = Field_GetNeighborEventsAtPosition(field, &pos);
+
+            if (neighbor != NULL) {
+                scrId = CheckProxyEntityEventGrid(neighbor, GameData_GetEventWork(wk.gameData), &pos, faceDir);
+                if (scrId != SCRID_NONE) {
+                    return FieldEventScriptCall_CreateForZone(gsys, scrId, NULL, neighbor->zoneId);
+                }
+            }
+        }
         scrId = CheckFieldEnvInteraction(&wk, field);
         if (scrId != SCRID_NONE) {
             return EventScriptCall_Create(gsys, scrId, NULL, wk.heapId);
@@ -778,6 +788,16 @@ static GameEvent *CheckTriggerScrEvent(FieldInteractWk *wk, u16 dir) {
     if (scrId != SCRID_NONE) {
         return EventScriptCall_Create(wk->gsys, scrId, NULL, wk->heapId);
     }
+    {
+        EventData *neighbor = Field_GetNeighborEventsAtPosition(field, &pos);
+
+        if (neighbor != NULL) {
+            scrId = GetTriggerSCRIDAtPosGrid(neighbor, eventWork, &pos, dir);
+            if (scrId != SCRID_NONE) {
+                return FieldEventScriptCall_CreateForZone(wk->gsys, scrId, NULL, neighbor->zoneId);
+            }
+        }
+    }
     return NULL;
 }
 
@@ -827,6 +847,7 @@ static GameEvent *CheckQuicksandEvent(FieldInteractWk *wk) {
     VecFx32 pos;
     Field *field = GSYS_GetField(wk->gsys);
     FieldPlayer *player = Field_GetPlayer(field);
+    EventData *events = wk->eventData;
     ZoneTrigger *trigger;
     u32 exState;
     u16 acmd;
@@ -838,7 +859,13 @@ static GameEvent *CheckQuicksandEvent(FieldInteractWk *wk) {
     if (MapTile_IsQuicksand(GetTileClass(GetTileTypeAtPos(Field_GetG3DMapper(field), &pos))) != TRUE) {
         return NULL;
     }
-    trigger = FindQuicksandTrigger(wk->eventData, GameData_GetEventWork(wk->gameData), &pos, PLAYER_DIR_NONE);
+    trigger = FindQuicksandTrigger(events, GameData_GetEventWork(wk->gameData), &pos, PLAYER_DIR_NONE);
+    if (trigger == NULL) {
+        events = Field_GetNeighborEventsAtPosition(field, &pos);
+        if (events != NULL) {
+            trigger = FindQuicksandTrigger(events, GameData_GetEventWork(wk->gameData), &pos, PLAYER_DIR_NONE);
+        }
+    }
     if (trigger == NULL) {
         return NULL;
     }
@@ -849,6 +876,9 @@ static GameEvent *CheckQuicksandEvent(FieldInteractWk *wk) {
     centerZ = grid->z + grid->height / 2;
     centerX = grid->x + grid->width / 2;
     if (centerX == (pos.x >> FX32_SHIFT) / GRID_UNITS && centerZ == (pos.z >> FX32_SHIFT) / GRID_UNITS) {
+        if (events != wk->eventData) {
+            return FieldEventScriptCall_CreateForZone(wk->gsys, trigger->scrId, NULL, events->zoneId);
+        }
         return EventScriptCall_Create(wk->gsys, trigger->scrId, NULL, wk->heapId);
     }
     exState = FieldPlayer_GetExState(player);
@@ -857,6 +887,9 @@ static GameEvent *CheckQuicksandEvent(FieldInteractWk *wk) {
         acmd == ACMD_DASH + DIR_LEFT || acmd == ACMD_DASH + DIR_RIGHT || acmd == ACMD_DASH_UPHILL + DIR_UP ||
         acmd == ACMD_DASH_UPHILL + DIR_DOWN || acmd == ACMD_DASH_UPHILL + DIR_LEFT ||
         acmd == ACMD_DASH_UPHILL + DIR_RIGHT) {
+        if (events != wk->eventData) {
+            return FieldEventScriptCall_CreateForZone(wk->gsys, trigger->scrId, NULL, events->zoneId);
+        }
         return EventScriptCall_Create(wk->gsys, trigger->scrId, NULL, wk->heapId);
     }
     return NULL;
@@ -1104,15 +1137,31 @@ static GameEvent *CheckWarpMapChangeEvent(FieldInteractWk *wk, Field *field, Vec
     ZoneWarp *warp;
     u32 warpId = GetWarpForWalkIn(wk, pos);
 
-    if (warpId == WARP_ID_NONE) {
-        return NULL;
+    if (warpId != WARP_ID_NONE) {
+        warp = GetZoneWarpByID(wk->eventData, warpId);
+        if (!IsWarpZoneOrWarpID0xFFFF(warp) && IsStepOnWarp(warp)) {
+            RememberOutboundWarp(wk, warpId, pos);
+            return CreateWarpMapChangeEvent(wk, field, warpId, pos);
+        }
     }
-    warp = GetZoneWarpByID(wk->eventData, warpId);
-    if (IsWarpZoneOrWarpID0xFFFF(warp) == TRUE || !IsStepOnWarp(warp)) {
-        return NULL;
+    {
+        EventData *neighbor = Field_GetNeighborEventsAtPosition(field, pos);
+
+        if (neighbor != NULL) {
+            FieldInteractWk neighborWk = *wk;
+
+            neighborWk.eventData = neighbor;
+            warpId = GetWarpForWalkIn(&neighborWk, pos);
+            if (warpId != WARP_ID_NONE) {
+                warp = GetZoneWarpByID(neighbor, warpId);
+                if (!IsWarpZoneOrWarpID0xFFFF(warp) && IsStepOnWarp(warp)) {
+                    RememberOutboundWarp(&neighborWk, warpId, pos);
+                    return CreateWarpMapChangeEvent(&neighborWk, field, warpId, pos);
+                }
+            }
+        }
     }
-    RememberOutboundWarp(wk, warpId, pos);
-    return CreateWarpMapChangeEvent(wk, field, warpId, pos);
+    return NULL;
 }
 
 static GameEvent *CheckExternalPushMoveEvents(FieldInteractWk *wk, Field *field) {
@@ -1146,7 +1195,7 @@ static GameEvent *CreateWarpMapChangeEvent(FieldInteractWk *wk, Field *field, u3
 static void RememberOutboundWarp(FieldInteractWk *wk, u32 warpId, VecFx32 *pos) {
     ZoneSpawnInfo spawn;
 
-    SetupZoneWarpArrivalGrid(&spawn, Field_GetPlayerStateZoneID(wk->field), warpId, 0, 0, pos->x, pos->y, pos->z);
+    SetupZoneWarpArrivalGrid(&spawn, wk->eventData->zoneId, warpId, 0, 0, pos->x, pos->y, pos->z);
     SetGameDataOutboundWarpRememberInfo(wk->gameData, &spawn);
 }
 
@@ -1216,6 +1265,20 @@ static GameEvent *CheckWallWarpEvent(FieldInteractWk *wk, GameSystem *gsys, Fiel
         if (!IsWarpZoneOrWarpID0xFFFF(GetZoneWarpByID(wk->eventData, warpId))) {
             RememberOutboundWarp(wk, warpId, wk->pos);
             return CreateWarpMapChangeEvent(wk, field, warpId, &front);
+        }
+    }
+    {
+        EventData *neighbor = Field_GetNeighborEventsAtPosition(field, &front);
+
+        if (neighbor != NULL) {
+            FieldInteractWk neighborWk = *wk;
+
+            neighborWk.eventData = neighbor;
+            warpId = GetWarpForWalkIn(&neighborWk, &front);
+            if (warpId != WARP_ID_NONE && !IsWarpZoneOrWarpID0xFFFF(GetZoneWarpByID(neighbor, warpId))) {
+                RememberOutboundWarp(&neighborWk, warpId, wk->pos);
+                return CreateWarpMapChangeEvent(&neighborWk, field, warpId, &front);
+            }
         }
     }
     return NULL;

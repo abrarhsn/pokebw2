@@ -15,6 +15,14 @@
             "type": "string", "x-constant": "MAP_TEXTURE_SET_",
             "description": "For a model with no texture_set, one of the sets that has every texture and palette it names, which its GLB shows in Blender"
         },
+        "base_model": {
+            "type": "string", "x-constant": "MAP_MODEL_",
+            "description": "For an appended map model, the original archive member whose model and terrain it copies"
+        },
+        "compact_position_edits": {
+            "type": "boolean",
+            "description": "Re-encode only shapes whose vertex positions changed; topology and vertex colors must remain unchanged"
+        },
         "transformed": {
             "enum": [ true ],
             "description": "Set when the GLB's positions went through the model's node transforms on export, which the packer reverses"
