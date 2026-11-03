@@ -638,18 +638,22 @@ def get_dsd(tools_dir: Path, from_source: bool) -> Path:
     return dsd
 
 
-def add_version(n: Writer, version: str, dsd: Path, bugfix: bool, shift: int) -> tuple[list[Path], list[str]]:
+def add_version(n: Writer, version: str, dsd: Path, bugfix: bool, shift: int, follow: bool) -> tuple[list[Path], list[str]]:
     """Adds the build steps of one version. Returns its check targets and dsd config files. A build with the bugs fixed
     or with its code shifted does not match, so its only targets are the ROM and its archives."""
-    matching = not bugfix and not shift
+    matching = not bugfix and not shift and not follow
     baserom = Path("orig") / f"baserom_{version}.nds"
     extract_dir = Path("extract") / version
     config_dir = Path("config") / version
     build_dir = Path("build") / version
     arm9_config = config_dir / "arm9" / "config.yaml"
-    rom = Path("build") / VERSIONS[version]["rom"]
+    rom_name = VERSIONS[version]["rom"]
+    if follow:
+        rom_name = rom_name.removesuffix(".nds") + "-follow.nds"
+    rom = Path("build") / rom_name
     sha1_file = Path(f"{version}.sha1")
-    sha1_file.write_text(f"{VERSIONS[version]['sha1']}  {rom}\n")
+    if not follow:
+        sha1_file.write_text(f"{VERSIONS[version]['sha1']}  {rom}\n")
 
     dsd_configs = sorted(str(p) for p in config_dir.rglob("*.txt")) + [str(arm9_config)]
 
@@ -691,7 +695,7 @@ def add_version(n: Writer, version: str, dsd: Path, bugfix: bool, shift: int) ->
     # Source files are listed in delinks.txt by their path. Complete files are linked from the compiled object, and
     # incomplete ones are still compiled so objdiff can compare them. A file in config/deadstrip.toml is compiled to an
     # object under unstripped/, which the strip turns into the one at the usual path.
-    version_defines = VERSIONS[version]["defines"] + (["BUGFIX"] if bugfix else [])
+    version_defines = VERSIONS[version]["defines"] + (["BUGFIX"] if bugfix else []) + (["FOLLOW_POKEMON"] if follow else [])
     defines = " ".join(f"-d {define}" for define in version_defines)
     as_defines = " ".join(f"-D{define}" for define in version_defines)
     objects = []
@@ -905,6 +909,7 @@ def main():
                              "code sizes; the ROMs no longer match. A multiple of 32, such as 0x100")
     parser.add_argument("--bugfix", action="store_true",
                         help="fix the game's bugs that are marked with BUGFIX in the source; the ROMs no longer match")
+    parser.add_argument("--follow", action="store_true", help="build a ROM with the lead Pokémon following the player")
     args = parser.parse_args()
 
     versions = args.versions or [v for v in VERSIONS if (ROOT / "orig" / f"baserom_{v}.nds").exists()]
@@ -1010,7 +1015,7 @@ def main():
     n.rule("complete_report", "$python tools/build/complete_report.py $in $out", "Counting complete files in $out")
     n.rule("progress", "$python tools/build/progress.py $in", "Progress")
     # A regeneration keeps the options that chose the tools, so that a build with another dsd keeps it
-    configure_args = [*args.versions, *(["--bugfix"] if args.bugfix else []),
+    configure_args = [*args.versions, *(["--bugfix"] if args.bugfix else []), *(["--follow"] if args.follow else []),
                       *([f"--shift {args.shift:#x}"] if args.shift else []),
                       *([f"--dsd {shlex.quote(str(args.dsd.resolve()))}"] if args.dsd else []),
                       *(["--dsd-from-source"] if args.dsd_from_source else []),
@@ -1073,7 +1078,7 @@ def main():
 
     checks, configs = [], []
     for version in versions:
-        version_checks, version_configs = add_version(n, version, dsd, args.bugfix, args.shift)
+        version_checks, version_configs = add_version(n, version, dsd, args.bugfix, args.shift, args.follow)
         checks += version_checks
         configs += version_configs
 

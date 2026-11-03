@@ -67,6 +67,8 @@ of downloading a binary. To use your own build, pass `--dsd PATH` or copy it to 
   so fixes in incomplete files do not apply yet.
 - `python3 configure.py --shift 0x100` moves the code to test changes in code size. See
   [Shifting](configs.md#shifting).
+- `python3 configure.py w2_us --follow` enables the experimental lead Pokémon follower and writes ROMs ending
+  in `-follow.nds`. Eggs and Pokémon without a matching field sprite do not appear; existing NPC followers take priority.
 
 Run `ninja` after configuring. These builds skip the matching checks. Configure again without the option to restore
 the standard matching build.

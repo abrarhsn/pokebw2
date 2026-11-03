@@ -76,6 +76,9 @@
 #include "system/game_data.h"
 #include "system/game_event.h"
 #include "system/game_system.h"
+#ifdef FOLLOW_POKEMON
+#include "system/tpoke_data.h"
+#endif
 #include "system/wipe.h"
 
 // The scripts that these events call
@@ -862,6 +865,67 @@ static GameEvent *CheckQuicksandEvent(FieldInteractWk *wk) {
     return NULL;
 }
 
+#ifdef FOLLOW_POKEMON
+#define POKEMON_FOLLOWER_ACTOR_ID 0xfd
+
+static void UpdatePokemonFollower(GameData *gameData, Field *field, BOOL onRail) {
+    MMSys *system = GameData_GetMMSys(gameData);
+    FieldActor *follower = FindFieldActor(system, POKEMON_FOLLOWER_ACTOR_ID);
+    PokeParty *party = GameData_GetParty(gameData);
+    PartyPkm *pokemon;
+    TPokeData *data;
+    u16 species, sex, form, objCode;
+    FieldActor *player;
+    s16 x, z;
+    u16 dir;
+    u32 state = FieldPlayer_GetExState(Field_GetPlayer(field));
+
+    if (onRail || state == FLD_PLAYER_EXSTATE_SURF || state == FLD_PLAYER_EXSTATE_DIVE ||
+        GameData_CheckPairFlag(gameData) || PokeParty_GetPkmCount(party) == 0) {
+        if (follower != NULL) {
+            DeleteActor(follower);
+        }
+        return;
+    }
+    pokemon = PokeParty_GetPkm(party, 0);
+    if (PokeParty_GetParam(pokemon, PKM_PARAM_IS_EGG, NULL)) {
+        if (follower != NULL) {
+            DeleteActor(follower);
+        }
+        return;
+    }
+    species = PokeParty_GetParam(pokemon, PKM_PARAM_SPECIES, NULL);
+    sex = PokeParty_GetParam(pokemon, PKM_PARAM_SEX, NULL);
+    form = PokeParty_GetParam(pokemon, PKM_PARAM_FORM, NULL);
+    data = LoadTPokeData(Field_GetHeapID(field));
+    if (GetFieldPokemonActorLUTIndex_(data, species, sex, form) == TPOKE_INDEX_NONE) {
+        FreeTPokeData(data);
+        if (follower != NULL) {
+            DeleteActor(follower);
+        }
+        return;
+    }
+    objCode = GetPokemonFieldOBJCODE(data, species, sex, form);
+    FreeTPokeData(data);
+    if (follower != NULL) {
+        if (FldAct_GetObjCode(follower) == objCode) {
+            return;
+        }
+        DeleteActor(follower);
+    }
+    player = FindPlayerFieldActor(system);
+    if (player == NULL) {
+        return;
+    }
+    x = GetGPosX(player);
+    z = GetGPosZ(player);
+    dir = GetActorFaceDir(player);
+    AdjusGridXZByDir(GetInverseDirection(dir), &x, &z, 1);
+    CreateNewActorByParam(system, x, z, dir, POKEMON_FOLLOWER_ACTOR_ID, objCode, MOVE_CODE_FOLLOW_PLAYER,
+                          GetActorZoneID(player));
+}
+#endif
+
 static GameEvent *CheckPerStepEvents(FieldInteractWk *wk, Field *field, RailPosition *railPos) {
     GameEvent *event;
     GameSystem *gsys;
@@ -871,6 +935,11 @@ static GameEvent *CheckPerStepEvents(FieldInteractWk *wk, Field *field, RailPosi
     Field_GetHeapID(field);
     gsys = Field_GetGameSystem(field);
     gameData = GSYS_GetGameData(gsys);
+#ifdef FOLLOW_POKEMON
+    if (wk->stepStarted) {
+        UpdatePokemonFollower(gameData, field, railPos != NULL);
+    }
+#endif
     if (wk->stepStarted && GameData_CheckPairFlag(gameData)) {
         updateFollowerModel(gameData);
     }
