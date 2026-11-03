@@ -2,6 +2,7 @@
 // Additional helper and table names are our descriptive guesses.
 #include "types.h"
 #include "constants/arc.h"
+#include "constants/items.h"
 #include "constants/sound.h"
 #include "constants/zones.h"
 #include "field/encounter.h"
@@ -70,6 +71,7 @@
 #include "gfl/touchpanel.h"
 #include "gfl/ui.h"
 #include "gfl/wm_icon.h"
+#include "save/bag.h"
 #include "nitro/fx.h"
 #include "nitro/gx.h"
 #include "nitro/mi.h"
@@ -375,6 +377,11 @@ u32 FieldRoutine_MapLoad(GameSystem *gsys, Field *field) {
         }
         field->player = FieldPlayer_Create(playerState, field, pos, getTrainerGender(GetGameDataPlayerInfo(gameData)),
                                            field->heapId);
+        FieldPlayer_RestoreFlight(field->player); // FLIGHT
+        // FLIGHT: the key item of the free flight, which every save gets
+        if (!BagSave_CheckAmount(GameData_GetBag(gameData), ITEM_FREE_FLIGHT, 1, field->heapId)) {
+            BagSave_AddItem(GameData_GetBag(gameData), ITEM_FREE_FLIGHT, 1, field->heapId);
+        }
         field->playerPos = *pos;
         field->ctrlVTable->create(field, &field->playerPos, dir);
         FieldG3DMapper_SetPlayerPos(field->g3DMapper, &field->playerPos);

@@ -57,6 +57,11 @@ static void FieldmapCtrlNoGrid_Free(Field *field) {
 }
 
 static void FieldmapCtrlNoGrid_Update(Field *field, VecFx32 *pos) {
+    // FLIGHT
+    if (FieldPlayer_IsFlying(Field_GetPlayer(field))) {
+        FieldPlayer_UpdateFlight(Field_GetPlayer(field), GCTX_HIDGetHeldKeys());
+        return;
+    }
     FieldmapCtrlNoGrid_MovePlayer(Field_GetController(field));
 }
 

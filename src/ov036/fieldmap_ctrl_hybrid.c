@@ -110,6 +110,12 @@ void FieldmapCtrlHybrid_Free(Field *field) {
 void FieldmapCtrlHybrid_Update(Field *field, VecFx32 *pos) {
     FieldmapCtrlHybrid *controller = Field_GetController(field);
 
+    // FLIGHT
+    if (FieldPlayer_IsFlying(controller->player)) {
+        FieldPlayer_UpdateFlight(controller->player, GCTX_HIDGetHeldKeys());
+        FieldPlayer_GetWPos(controller->player, pos);
+        return;
+    }
     sUpdateFuncs[controller->activeType](field, controller);
     FieldPlayer_GetWPos(controller->player, pos);
 }

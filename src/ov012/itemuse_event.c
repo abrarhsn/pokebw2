@@ -1,9 +1,12 @@
 #include "types.h"
+#include "constants/sound.h"
 #include "constants/zones.h"
 #include "field/event_fishing.h"
 #include "field/event_mapchange.h"
 #include "field/event_sweet_scent.h"
 #include "field/field.h"
+#include "field/field_acmd.h"
+#include "field/field_actor.h"
 #include "field/field_map.h"
 #include "field/field_player.h"
 #include "field/field_surf.h"
@@ -13,6 +16,7 @@
 #include "field/player_state.h"
 #include "field/subscreen.h"
 #include "field/zone.h"
+#include "gfl/sound.h"
 #include "gfl/std.h"
 #include "system/game_data.h"
 #include "system/game_event.h"
@@ -36,6 +40,10 @@ typedef struct {
     Field *field;
 } EventFieldToggleDowsingWork;
 
+typedef struct {
+    GameSystem *gsys;
+} EventFieldToggleFlightWork;
+
 static FieldActionResult CheckFieldActionBlocked(u32 action, GameSystem *gsys, Field *field);
 static FieldActionResult FieldActionBlockCheck_Cycling(GameData *gameData, Field *field, PlayerState *state);
 static FieldActionResult FieldActionBlockCheck_EscapeRope(GameData *gameData, Field *field, PlayerState *state);
@@ -43,6 +51,9 @@ static FieldActionResult FieldActionBlockCheck_NormalZone(GameData *gameData, Fi
 static FieldActionResult FieldActionBlockCheck_Surf(GameData *gameData, Field *field, PlayerState *state);
 static FieldActionResult FieldActionBlockCheck_NormalZoneNotRoyalUnova(GameData *gameData, Field *field,
                                                                        PlayerState *state);
+static FieldActionResult FieldActionBlockCheck_Flight(GameData *gameData, Field *field, PlayerState *state);
+static GameEventReturnCode EventFieldToggleFlight_Callback(GameEvent *event, u32 *state, void *data);
+static GameEventReturnCode EventFlightDismount_Callback(GameEvent *event, u32 *state, void *data);
 static GameEventReturnCode EventFieldToggleCycling_Callback(GameEvent *event, u32 *state, void *data);
 static GameEventReturnCode EventFieldToggleDowsing_Callback(GameEvent *event, u32 *state, void *data);
 
@@ -53,6 +64,7 @@ static const FieldCommonEvent FIELD_COMMON_EVENTS[FIELD_COMMON_EVENT_COUNT] = {
     { EventSweetScent_Create, 0xff },
     { EventFieldFishing_Create, PLAYER_ACTION_FISHING },
     { EventFieldToggleDowsing_Create, PLAYER_ACTION_DOWSING },
+    { EventFieldToggleFlight_Create, PLAYER_ACTION_FLIGHT },
 };
 
 static const FieldActionBlockCheck FIELD_ACTION_BLOCK_CHECKS[PLAYER_ACTION_COUNT] = {
@@ -63,7 +75,7 @@ static const FieldActionBlockCheck FIELD_ACTION_BLOCK_CHECKS[PLAYER_ACTION_COUNT
     FieldActionBlockCheck_NormalZone,
     FieldActionBlockCheck_Surf,
     FieldActionBlockCheck_NormalZoneNotRoyalUnova,
-    NULL,
+    FieldActionBlockCheck_Flight,
     NULL,
     FieldActionBlockCheck_NormalZoneNotRoyalUnova,
     FieldActionBlockCheck_NormalZoneNotRoyalUnova,
@@ -87,6 +99,12 @@ static FieldActionResult CheckFieldActionBlocked(u32 action, GameSystem *gsys, F
     GameData *gameData = GSYS_GetGameData(gsys);
     PlayerState *state = GameData_GetPlayerState(gameData);
 
+    // FLIGHT: not the bike, the rope, the honey or the rod in the air
+    if (PlayerState_IsFlying(state) &&
+        (action == PLAYER_ACTION_BICYCLE || action == PLAYER_ACTION_ESCAPE_ROPE || action == PLAYER_ACTION_HONEY ||
+         action == PLAYER_ACTION_FISHING)) {
+        return FIELD_ACTION_BLOCKED;
+    }
     if (FIELD_ACTION_BLOCK_CHECKS[action] == NULL) {
         return FIELD_ACTION_ALLOWED;
     }
@@ -169,6 +187,83 @@ static FieldActionResult FieldActionBlockCheck_NormalZoneNotRoyalUnova(GameData 
         return FIELD_ACTION_ALLOWED;
     }
     return FIELD_ACTION_BLOCKED;
+}
+
+// FLIGHT: landing is always asked for, and refused in the event if the tile below can't be stood on
+static FieldActionResult FieldActionBlockCheck_Flight(GameData *gameData, Field *field, PlayerState *state) {
+    if (PlayerState_IsFlying(state) || FieldPlayer_CanStartFlight(Field_GetPlayer(field))) {
+        return FIELD_ACTION_ALLOWED;
+    }
+    return FIELD_ACTION_BLOCKED;
+}
+
+// FLIGHT: takes off, or lands
+static GameEventReturnCode EventFieldToggleFlight_Callback(GameEvent *event, u32 *state, void *data) {
+    EventFieldToggleFlightWork *work = data;
+    FieldPlayer *player = Field_GetPlayer(GSYS_GetField(work->gsys));
+
+    if (FieldPlayer_IsFlying(player)) {
+        if (!FieldPlayer_EndFlight(player)) {
+            GFL_SndSEPlay(SEQ_SE_CANCEL1);
+        }
+    } else if (FieldPlayer_StartFlight(player)) {
+        GFL_SndSEPlay(SEQ_SE_BICYCLE);
+    }
+    return GAMEEVENT_DONE;
+}
+
+GameEvent *EventFieldToggleFlight_Create(Field *field, GameSystem *gsys) {
+    GameEvent *event =
+        GameEvent_Create(gsys, NULL, EventFieldToggleFlight_Callback, sizeof(EventFieldToggleFlightWork));
+    EventFieldToggleFlightWork *work = GameEvent_GetData(event);
+
+    work->gsys = gsys;
+    return event;
+}
+
+// FLIGHT: gets off the cloud at the bottom, with a hop onto the tile in front if the player can stand there
+static GameEventReturnCode EventFlightDismount_Callback(GameEvent *event, u32 *state, void *data) {
+    EventFieldToggleFlightWork *work = data;
+    FieldPlayer *player = Field_GetPlayer(GSYS_GetField(work->gsys));
+    FieldActor *actor = FieldPlayer_GetActor(player);
+
+    switch (*state) {
+    case 0: {
+        u16 dir;
+        u32 tileInFront;
+
+        if (!FieldPlayer_EndFlight(player)) {
+            GFL_SndSEPlay(SEQ_SE_CANCEL1);
+            return GAMEEVENT_DONE;
+        }
+        dir = FieldPlayer_GetFaceDir(player);
+        tileInFront = FieldPlayer_GetTileTypeInDir(player, dir);
+        if (tileInFront == TILE_TYPE_NONE || MapTile_BlocksCollision(tileInFront) ||
+            (GetTileFlags(tileInFront) & TILE_FLAG_WATER) != 0) {
+            return GAMEEVENT_DONE;
+        }
+        FldAct_SetAcmd(actor, GetAcmdForDir(dir, ACMD_JUMP_1));
+        GFL_SndSEPlay(SEQ_SE_DANSA);
+        (*state)++;
+        break;
+    }
+    case 1:
+        if (FldAct_CheckAcmdEnd(actor)) {
+            FldAct_EndAcmd(actor);
+            return GAMEEVENT_DONE;
+        }
+        break;
+    }
+    return GAMEEVENT_CONTINUE;
+}
+
+GameEvent *EventFlightDismount_Create(Field *field, GameSystem *gsys) {
+    GameEvent *event =
+        GameEvent_Create(gsys, NULL, EventFlightDismount_Callback, sizeof(EventFieldToggleFlightWork));
+    EventFieldToggleFlightWork *work = GameEvent_GetData(event);
+
+    work->gsys = gsys;
+    return event;
 }
 
 static GameEventReturnCode EventFieldToggleCycling_Callback(GameEvent *event, u32 *state, void *data) {

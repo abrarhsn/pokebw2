@@ -55,6 +55,11 @@ static void FieldmapCtrlGrid_Update(Field *field, VecFx32 *pos) {
         u32 heldKeys = GCTX_HIDGetHeldKeys();
         u32 flags = 0;
 
+        // FLIGHT
+        if (FieldPlayer_IsFlying(player)) {
+            FieldPlayer_UpdateFlight(player, heldKeys);
+            return;
+        }
         if (FieldPlayer_CheckRunningShoesFlag(player) == TRUE) {
             flags |= 1;
         }

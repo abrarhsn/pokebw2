@@ -22,7 +22,8 @@ struct PlayerState {
     VecFx32 position;
     RailPosition railPos;
     u16 rotation;
-    u8 unk1A;
+    // FLIGHT: whether the player rides the cloud of the free flight, which no save keeps
+    u8 flying;
     u8 isRail;
     u16 objCode;
     u8 unk1E[2];
@@ -47,5 +48,14 @@ void PlayerState_SetRotationByDir(PlayerState *playerState, u16 dir);
 void PlayerState_SetWPos(PlayerState *playerState, VecFx32 *pos);
 void PlayerState_SetZoneID(PlayerState *playerState, u16 zoneId);
 void SetPlayerSpecialState(PlayerState *playerState, u32 state);
+// FLIGHT: whether the player is on free flight, and sets it. Inline, since code added to ARM9 main moves what its
+// secure area's digests cover, which the build cannot compute without an ARM7 BIOS
+static inline BOOL PlayerState_IsFlying(PlayerState *playerState) {
+    return playerState->flying;
+}
+
+static inline void PlayerState_SetFlying(PlayerState *playerState, BOOL flying) {
+    playerState->flying = flying;
+}
 
 #endif // POKEBW2_FIELD_PLAYER_STATE_H

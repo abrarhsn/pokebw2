@@ -7,6 +7,7 @@
 #include "constants/obj_codes.h"
 #include "field/event_chatot.h"
 #include "field/event_fly.h"
+#include "field/itemuse_event.h"
 #include "field/event_mapchange.h"
 #include "field/event_sweet_scent.h"
 #include "field/field.h"
@@ -312,19 +313,14 @@ GameEvent *EventSweetScentCall_Create(HiddenEventArgs *args, PlayerActionPossibi
     return EventSweetScent_CreateFromPartySlot(context->gsys, context->field, args->partySlot);
 }
 
+// FLIGHT: Fly takes off, or lands, instead of flying to a town, and works anywhere
 GameEvent *EventFly_Create(HiddenEventArgs *args, PlayerActionPossibilities *context) {
     GameBeacon_BroadcastFieldMove(MOVE_FLY);
-    return EventFly_CreateMapChangeEvent(context->gsys, context->field, args->value);
+    return EventFieldToggleFlight_Create(context->field, context->gsys);
 }
 
 u32 EventFly_Check(PlayerActionPossibilities *context) {
-    if (HMEvent_CheckContextFlag(context, 4) != 0) {
-        if (HMEvent_CheckPairFlag(context) != 0) {
-            return 3;
-        }
-        return 0;
-    }
-    return 1;
+    return 0;
 }
 
 u32 EventFlash_Check(PlayerActionPossibilities *context) {

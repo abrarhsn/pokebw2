@@ -18,6 +18,7 @@ enum {
     FIELD_COMMON_EVENT_SWEET_SCENT,
     FIELD_COMMON_EVENT_FISHING,
     FIELD_COMMON_EVENT_DOWSING,
+    FIELD_COMMON_EVENT_FLIGHT, // FLIGHT
     FIELD_COMMON_EVENT_COUNT,
 };
 
@@ -26,5 +27,7 @@ GameEvent *CallFieldCommonEventFunc(u32 id, GameSystem *gsys, Field *field);
 GameEvent *EventFieldToggleCycling_Create(Field *field, GameSystem *gsys);
 GameEvent *EventEntralinkWarpIn_CreateDefault(Field *field, GameSystem *gsys);
 GameEvent *EventFieldToggleDowsing_Create(Field *field, GameSystem *gsys);
+GameEvent *EventFieldToggleFlight_Create(Field *field, GameSystem *gsys); // FLIGHT
+GameEvent *EventFlightDismount_Create(Field *field, GameSystem *gsys); // FLIGHT
 
 #endif // POKEBW2_FIELD_ITEMUSE_EVENT_H

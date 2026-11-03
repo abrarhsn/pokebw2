@@ -59,6 +59,8 @@ void EncountTask_SetPaused(FieldEffectTask *task, BOOL paused);
 void EncountTask_SetDrawHidden(FieldEffectTask *task, BOOL hidden);
 // The effects that actors make on the terrain
 void FldeffShadow_Start(FieldActor *actor, FieldEffects *effects);
+// FLIGHT: the cloud under the player on free flight
+FieldEffectTask *FldeffCloud_Start(FieldActor *actor, FieldEffects *effects);
 // The dust of an actor landing
 void FldeffDust_Start(FieldActor *actor, FieldEffects *effects);
 // The dust in front of an actor

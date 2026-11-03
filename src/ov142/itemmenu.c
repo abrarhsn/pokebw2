@@ -95,6 +95,7 @@ static BOOL ItemMenu_UseDowsingMchn(ItemMenuWork *work);
 static BOOL ItemMenu_UseEscapeRope(ItemMenuWork *work);
 static BOOL ItemMenu_UseXtransceiver(ItemMenuWork *work);
 static BOOL ItemMenu_UseMedalBox(ItemMenuWork *work);
+static BOOL ItemMenu_UseFreeFlight(ItemMenuWork *work);
 static s32 ItemMenu_FindFieldUse(u16 item);
 static void ItemMenu_StateItemMenu(ItemMenuWork *work);
 static void ItemMenu_StateSelectItem(ItemMenuWork *work);
@@ -192,6 +193,7 @@ static const ItemMenuFieldUse sItemMenuFieldUses[] = {
     { ITEM_XTRANSCEIVER_MALE, 1, ItemMenu_UseXtransceiver },
     { ITEM_XTRANSCEIVER_FEMALE, 1, ItemMenu_UseXtransceiver },
     { ITEM_MEDAL_BOX, 1, ItemMenu_UseMedalBox },
+    { ITEM_FREE_FLIGHT, 1, ItemMenu_UseFreeFlight },
 };
 
 static void ItemMenu_SetState(ItemMenuWork *work, ItemMenuState state) {
@@ -752,6 +754,11 @@ static BOOL ItemMenu_UseEscapeRope(ItemMenuWork *work) {
         return ItemMenu_UseInField(work, 3, 14, TRUE);
     }
     return FALSE;
+}
+
+// FLIGHT: field action 7 is the free flight's
+static BOOL ItemMenu_UseFreeFlight(ItemMenuWork *work) {
+    return ItemMenu_UseInField(work, 7, 23, FALSE);
 }
 
 static BOOL ItemMenu_UseXtransceiver(ItemMenuWork *work) {

@@ -440,6 +440,7 @@ u32 FieldAppCall_GetPokeListResult(FieldAppCallWork *work, void *data) {
     case 12:
     case 13:
     case 14:
+    case 15: // FLIGHT: Fly is the free flight, not the town map
     case 16:
     case 17:
     case 18:
@@ -448,9 +449,6 @@ u32 FieldAppCall_GetPokeListResult(FieldAppCallWork *work, void *data) {
     case 21:
         work->input->eventId = param->result - 11;
         return FIELD_APP_RESULT_HM_EVENT;
-    case 15:
-        work->nextAppId = FIELD_APP_TOWNMAP;
-        return FIELD_APP_RESULT_NEXT;
     }
     return FIELD_APP_RESULT_EXIT;
 }
@@ -697,6 +695,9 @@ u32 FieldAppCall_GetBagResult(FieldAppCallWork *work, void *data) {
         return FIELD_APP_RESULT_NEXT;
     case 20:
         work->input->eventId = FIELD_COMMON_EVENT_DOWSING;
+        return FIELD_APP_RESULT_COMMON_EVENT;
+    case 23: // FLIGHT
+        work->input->eventId = FIELD_COMMON_EVENT_FLIGHT;
         return FIELD_APP_RESULT_COMMON_EVENT;
     case 2:
         if (PML_ItemIsMail(param->item) == TRUE) {

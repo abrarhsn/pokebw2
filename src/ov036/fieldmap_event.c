@@ -33,6 +33,7 @@
 #include "field/field_menu.h"
 #include "field/field_pass_power.h"
 #include "field/field_player.h"
+#include "field/itemuse_event.h"
 #include "field/field_rail.h"
 #include "field/field_script.h"
 #include "field/field_script_event.h"
@@ -417,6 +418,41 @@ static GameEvent *FieldEventProvider_Grid_CheckForEvent(GameSystem *gsys, Field 
     return NULL;
 }
 
+// FLIGHT: what can start while the player flies: the scripts that are reserved, the Y button's shortcuts and the menu.
+// No step, encounter, warp, trainer or actor event
+static GameEvent *FieldEventProvider_Flight_CheckForEvent(GameSystem *gsys, Field *field, BOOL *scriptCalled,
+                                                          BOOL *menuOpened) {
+    FieldInteractWk wk;
+    GameEvent *event;
+
+    *scriptCalled = FALSE;
+    *menuOpened = FALSE;
+    FieldEventProvider_InitCheckData(&wk, gsys, field);
+    event = CheckReserveEventScriptCall(&wk);
+    if (event != NULL) {
+        *scriptCalled = TRUE;
+        return event;
+    }
+    if (FieldPlayer_TakeDismountRequest(Field_GetPlayer(field))) {
+        return EventFlightDismount_Create(field, gsys);
+    }
+    if (wk.yPressed && GFL_WipeIsFinished()) {
+        FieldSubscreen *subscreen = Field_GetSubscreen(field);
+
+        if (IsExistAnyYShortcut(gsys) && FieldSubscreen_IsReady(subscreen)) {
+            event = CallYButtonShortcutMenu(gsys, field, wk.heapId);
+            if (event != NULL) {
+                return event;
+            }
+        }
+    }
+    if (wk.xPressed && GFL_WipeIsFinished()) {
+        *menuOpened = TRUE;
+        return EventFieldMenu_Create(gsys, field, wk.heapId);
+    }
+    return NULL;
+}
+
 GameEvent *FieldEventProvider_Grid(GameSystem *gsys, void *data) {
     BOOL scriptCalled;
     BOOL menuOpened;
@@ -425,7 +461,11 @@ GameEvent *FieldEventProvider_Grid(GameSystem *gsys, void *data) {
     GameEvent *event;
 
     EncountSystem_CancelPhenomenonIfActorHit(encounter);
-    event = FieldEventProvider_Grid_CheckForEvent(gsys, data, &scriptCalled, &menuOpened);
+    if (FieldPlayer_IsFlying(Field_GetPlayer(field))) {
+        event = FieldEventProvider_Flight_CheckForEvent(gsys, field, &scriptCalled, &menuOpened);
+    } else {
+        event = FieldEventProvider_Grid_CheckForEvent(gsys, data, &scriptCalled, &menuOpened);
+    }
     if (event != NULL) {
         CasteliaRush *rush;
 
@@ -512,7 +552,15 @@ GameEvent *FieldEventProvider_UnionRoom(GameSystem *gsys, void *data) {
 }
 
 GameEvent *FieldEventProvider_NoGrid(GameSystem *gsys, void *data) {
-    GameEvent *event = FieldEventProvider_NoGrid_CheckForEvent(gsys, data);
+    GameEvent *event;
+    BOOL scriptCalled;
+    BOOL menuOpened;
+
+    // FLIGHT
+    if (FieldPlayer_IsFlying(Field_GetPlayer(data))) {
+        return FieldEventProvider_Flight_CheckForEvent(gsys, data, &scriptCalled, &menuOpened);
+    }
+    event = FieldEventProvider_NoGrid_CheckForEvent(gsys, data);
 
     if (event != NULL) {
         CasteliaRush *rush;

@@ -3,6 +3,9 @@
 #include "constants/obj_codes.h"
 #include "field/field.h"
 #include "field/field_actor.h"
+#include "field/field_camera.h"
+#include "field/field_controller.h"
+#include "field/field_effect.h"
 #include "field/field_g3d_mapper.h"
 #include "field/field_map.h"
 #include "field/field_nogrid_mapper.h"
@@ -14,6 +17,7 @@
 #include "field/player_state.h"
 #include "field/zone.h"
 #include "gfl/heap.h"
+#include "gfl/key.h"
 #include "nitro/fx.h"
 #include "save/event_work.h"
 #include "system/game_data.h"
@@ -26,6 +30,9 @@ struct FieldPlayer {
     FieldPlayerCore *core;
     FieldPlayerGrid *grid;
     FieldPlayerNoGrid *nogrid;
+    FieldEffectTask *cloud; // FLIGHT: the cloud under the player on free flight
+    BOOL dismountRequested; // FLIGHT: the player is at the bottom with L held, for the event provider to land them
+    u32 dismountCooldown;
 };
 
 // The controller types that Field_GetResolvedControllerTypeID returns
@@ -107,6 +114,175 @@ void FieldPlayer_SyncState(FieldPlayer *player) {
         PlayerState_SetRailPos(state, &railPos);
         PlayerState_SetIsRail(state, TRUE);
     }
+}
+
+// FLIGHT: the free flight, in which the player rides a cloud and moves in every direction, up and down, over any
+// terrain. It sets the player's wPos itself, so the grid movement doesn't run, and the actor stays off the ground.
+// How far the player moves in a frame, flat and with B held, and up and down
+#define FLIGHT_SPEED FX32_CONST(3)
+#define FLIGHT_SPEED_FAST FX32_CONST(6)
+#define FLIGHT_CLIMB_SPEED FX32_CONST(2)
+// How far above the ground the player flies, at least and at most
+#define FLIGHT_HEIGHT_MIN FX32_CONST(12)
+#define FLIGHT_HEIGHT_MAX FX32_CONST(480)
+
+BOOL FieldPlayer_IsFlying(FieldPlayer *player) {
+    return PlayerState_IsFlying(FieldPlayerCore_GetPlayerState(player->core));
+}
+
+// Whether free flight may start where the player is: anywhere, on foot. On the maps that move the player along rails
+// it is not made to work, and the camera and the player may not agree there
+BOOL FieldPlayer_CanStartFlight(FieldPlayer *player) {
+    PlayerState *state = FieldPlayerCore_GetPlayerState(player->core);
+
+    return FieldPlayerState_GetExState(state) == FLD_PLAYER_EXSTATE_NONE;
+}
+
+// What the actor and the camera do while the player flies: no ground height or tile, and no limits for the camera
+static void FieldPlayer_SetFlightActorFlags(FieldPlayer *player, BOOL flying) {
+    FieldActor *actor = FieldPlayerCore_GetActor(player->core);
+
+    FldAct_SetHeightCalcDisabled(actor, flying);
+    FldAct_SetMapAttrDisabled(actor, flying);
+}
+
+static void FieldPlayer_SetFlightCamera(FieldPlayer *player, BOOL flying) {
+    FieldCamera *camera = Field_GetCameraSystem(player->field);
+
+    if (camera == NULL) {
+        return;
+    }
+    FieldCamera_SetUseBoundaryEnable(camera, !flying);
+    if (flying) {
+        FieldCamera_DisableDelay(camera);
+    }
+}
+
+BOOL FieldPlayer_StartFlight(FieldPlayer *player) {
+    if (!FieldPlayer_CanStartFlight(player)) {
+        return FALSE;
+    }
+    PlayerState_SetFlying(FieldPlayerCore_GetPlayerState(player->core), TRUE);
+    FieldPlayer_SetFlightActorFlags(player, TRUE);
+    FieldPlayer_SetFlightCamera(player, TRUE);
+    return TRUE;
+}
+
+// Lands on the tile center under the player, if it is ground the player can stand on
+BOOL FieldPlayer_EndFlight(FieldPlayer *player) {
+    FieldActor *actor = FieldPlayerCore_GetActor(player->core);
+    VecFx32 pos;
+    fx32 height;
+    u32 tileType;
+
+    FieldPlayerCore_GetWPos(player->core, &pos);
+    ConvGXZToVector((s16)(((pos.x) >> 4) / FX32_ONE), (s16)(((pos.z) >> 4) / FX32_ONE), &pos);
+    if (!GetHeightFromMap(actor, &pos, &height)) {
+        return FALSE;
+    }
+    pos.y = height;
+    tileType = GetTileTypeAtPos(Field_GetG3DMapper(player->field), &pos);
+    if (tileType == TILE_TYPE_NONE || MapTile_BlocksCollision(tileType) ||
+        (GetTileFlags(tileType) & TILE_FLAG_WATER) != 0) {
+        return FALSE;
+    }
+    FieldPlayerCore_SetWPos(player->core, &pos);
+    if (player->cloud != NULL) {
+        FieldEffects_DeleteObject(player->cloud);
+        player->cloud = NULL;
+    }
+    PlayerState_SetFlying(FieldPlayerCore_GetPlayerState(player->core), FALSE);
+    FieldPlayer_SetFlightActorFlags(player, FALSE);
+    FieldPlayer_SetFlightCamera(player, FALSE);
+    return TRUE;
+}
+
+// Called as the player is made on a map load: the actor's flags don't outlast a warp, so they are set again if the
+// flight goes on
+void FieldPlayer_RestoreFlight(FieldPlayer *player) {
+    FieldPlayer_SetFlightActorFlags(player, PlayerState_IsFlying(FieldPlayerCore_GetPlayerState(player->core)));
+}
+
+// Whether the player asked to get off the cloud since the last call
+BOOL FieldPlayer_TakeDismountRequest(FieldPlayer *player) {
+    BOOL requested = player->dismountRequested;
+
+    player->dismountRequested = FALSE;
+    return requested;
+}
+
+void FieldPlayer_UpdateFlight(FieldPlayer *player, u32 heldKeys) {
+    FieldActor *actor = FieldPlayerCore_GetActor(player->core);
+    FieldG3DMapper *mapper = Field_GetG3DMapper(player->field);
+    fx32 speed = (heldKeys & PAD_BUTTON_B) ? FLIGHT_SPEED_FAST : FLIGHT_SPEED;
+    VecFx32 pos;
+    VecFx32 test;
+    fx32 ground;
+    u16 dir = DIR_NONE;
+
+    FieldPlayerCore_GetWPos(player->core, &pos);
+    test = pos;
+    if (heldKeys & PAD_KEY_UP) {
+        test.z -= speed;
+        dir = DIR_UP;
+    } else if (heldKeys & PAD_KEY_DOWN) {
+        test.z += speed;
+        dir = DIR_DOWN;
+    }
+    if (heldKeys & PAD_KEY_LEFT) {
+        test.x -= speed;
+        dir = DIR_LEFT;
+    } else if (heldKeys & PAD_KEY_RIGHT) {
+        test.x += speed;
+        dir = DIR_RIGHT;
+    }
+    if (heldKeys & PAD_BUTTON_R) {
+        pos.y += FLIGHT_CLIMB_SPEED;
+    } else if (heldKeys & PAD_BUTTON_L) {
+        pos.y -= FLIGHT_CLIMB_SPEED;
+    }
+
+    // Each axis on its own, so that the player slides along the edge of the map
+    test.y = pos.y;
+    if (!FieldG3DMapper_IsPosOutOfBounds(mapper, &test)) {
+        pos = test;
+    } else {
+        VecFx32 axis = pos;
+
+        axis.x = test.x;
+        if (!FieldG3DMapper_IsPosOutOfBounds(mapper, &axis)) {
+            pos.x = test.x;
+        }
+        axis = pos;
+        axis.z = test.z;
+        if (!FieldG3DMapper_IsPosOutOfBounds(mapper, &axis)) {
+            pos.z = test.z;
+        }
+    }
+
+    if (player->dismountCooldown != 0) {
+        player->dismountCooldown--;
+    }
+    if (GetHeightFromMap(actor, &pos, &ground)) {
+        if (pos.y < ground + FLIGHT_HEIGHT_MIN) {
+            pos.y = ground + FLIGHT_HEIGHT_MIN;
+        } else if (pos.y > ground + FLIGHT_HEIGHT_MAX) {
+            pos.y = ground + FLIGHT_HEIGHT_MAX;
+        }
+        // Down to the lowest the player flies, with L still held: get off
+        if ((heldKeys & PAD_BUTTON_L) && pos.y <= ground + FLIGHT_HEIGHT_MIN && player->dismountCooldown == 0) {
+            player->dismountRequested = TRUE;
+            player->dismountCooldown = 30;
+        }
+    }
+    if (player->cloud == NULL) {
+        player->cloud = FldeffCloud_Start(actor, Field_GetFieldEffects(player->field));
+    }
+    if (dir != DIR_NONE) {
+        FieldPlayerCore_SetDirection(player->core, dir);
+    }
+    FieldPlayerCore_SetWPos(player->core, &pos);
+    FieldPlayer_SetFlightCamera(player, TRUE);
 }
 
 GameEvent *FieldPlayer_CheckObjContactEvent(FieldPlayer *player, u32 pressedKeys, u32 heldKeys, u32 flags) {

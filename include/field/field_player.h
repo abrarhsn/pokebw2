@@ -13,6 +13,14 @@
 
 BOOL Field_HasPlayer(Field *field);
 BOOL Field_ToggleCycling(Field *field);
+// FLIGHT: the free flight
+BOOL FieldPlayer_IsFlying(FieldPlayer *player);
+BOOL FieldPlayer_CanStartFlight(FieldPlayer *player);
+BOOL FieldPlayer_StartFlight(FieldPlayer *player);
+BOOL FieldPlayer_EndFlight(FieldPlayer *player);
+void FieldPlayer_RestoreFlight(FieldPlayer *player);
+void FieldPlayer_UpdateFlight(FieldPlayer *player, u32 heldKeys);
+BOOL FieldPlayer_TakeDismountRequest(FieldPlayer *player);
 void FieldPlayer_GetWPosInDir(FieldPlayer *player, u16 direction, VecFx32 *position);
 u32 FieldPlayer_GetExState(FieldPlayer *player);
 u32 FieldPlayer_DeriveExState(FieldPlayer *player);
