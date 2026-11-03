@@ -6,8 +6,8 @@
             "condition": 2,
             "direction": 4,
             "grid": {
-                "x": 5,
-                "y": 9,
+                "x": 165,
+                "y": 329,
                 "z": 16
             }
         },
@@ -16,8 +16,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 3,
-                "y": 2,
+                "x": 163,
+                "y": 322,
                 "z": 0
             }
         },
@@ -26,8 +26,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 9,
-                "y": 15,
+                "x": 169,
+                "y": 335,
                 "z": 0
             }
         },
@@ -36,8 +36,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 7,
-                "y": 26,
+                "x": 167,
+                "y": 346,
                 "z": -16
             }
         },
@@ -46,8 +46,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 14,
-                "y": 23,
+                "x": 174,
+                "y": 343,
                 "z": -16
             }
         },
@@ -56,8 +56,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 25,
-                "y": 21,
+                "x": 185,
+                "y": 341,
                 "z": -16
             }
         },
@@ -66,8 +66,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 25,
-                "y": 15,
+                "x": 185,
+                "y": 335,
                 "z": 16
             }
         },
@@ -76,8 +76,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 28,
-                "y": 7,
+                "x": 188,
+                "y": 327,
                 "z": 0
             }
         },
@@ -86,8 +86,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 26,
-                "y": 4,
+                "x": 186,
+                "y": 324,
                 "z": 0
             }
         },
@@ -96,8 +96,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 17,
-                "y": 10,
+                "x": 177,
+                "y": 330,
                 "z": 16
             }
         },
@@ -106,8 +106,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 15,
-                "y": 4,
+                "x": 175,
+                "y": 324,
                 "z": 16
             }
         },
@@ -116,8 +116,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 8,
-                "y": 3,
+                "x": 168,
+                "y": 323,
                 "z": 16
             }
         },
@@ -126,8 +126,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 9,
-                "y": 4,
+                "x": 169,
+                "y": 324,
                 "z": 16
             }
         },
@@ -136,8 +136,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 5,
-                "y": 10,
+                "x": 165,
+                "y": 330,
                 "z": 16
             }
         },
@@ -146,8 +146,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 8,
-                "y": 13,
+                "x": 168,
+                "y": 333,
                 "z": 16
             }
         },
@@ -156,8 +156,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 10,
-                "y": 6,
+                "x": 170,
+                "y": 326,
                 "z": 0
             }
         },
@@ -166,8 +166,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 18,
-                "y": 7,
+                "x": 178,
+                "y": 327,
                 "z": 16
             }
         },
@@ -176,8 +176,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 21,
-                "y": 18,
+                "x": 181,
+                "y": 338,
                 "z": 16
             }
         },
@@ -186,8 +186,8 @@
             "condition": 4,
             "direction": 4,
             "grid": {
-                "x": 25,
-                "y": 2,
+                "x": 185,
+                "y": 322,
                 "z": 0
             }
         }
@@ -201,14 +201,18 @@
             "flag": 0,
             "script": 10000,
             "direction": "DIR_DOWN",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 3,
-                "z": 15,
+                "x": 163,
+                "z": 335,
                 "y": 0
             }
         },
@@ -220,14 +224,18 @@
             "flag": 0,
             "script": 10000,
             "direction": "DIR_DOWN",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 15,
-                "z": 26,
+                "x": 175,
+                "z": 346,
                 "y": -65536
             }
         },
@@ -239,14 +247,18 @@
             "flag": 0,
             "script": 10000,
             "direction": "DIR_DOWN",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 9,
-                "z": 8,
+                "x": 169,
+                "z": 328,
                 "y": 0
             }
         },
@@ -258,14 +270,18 @@
             "flag": 0,
             "script": 3680,
             "direction": "DIR_DOWN",
-            "params": [ 4, 0, 0 ],
+            "params": [
+                4,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 15,
-                "z": 6,
+                "x": 175,
+                "z": 326,
                 "y": 65536
             }
         },
@@ -277,14 +293,18 @@
             "flag": 0,
             "script": 3681,
             "direction": "DIR_LEFT",
-            "params": [ 5, 0, 0 ],
+            "params": [
+                5,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 12,
-                "z": 24,
+                "x": 172,
+                "z": 344,
                 "y": -65536
             }
         },
@@ -296,14 +316,18 @@
             "flag": "EVENT_FLAG_0x049b",
             "script": 7079,
             "direction": "DIR_DOWN",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 9,
-                "z": 3,
+                "x": 169,
+                "z": 323,
                 "y": 65536
             }
         },
@@ -315,14 +339,18 @@
             "flag": "EVENT_FLAG_0x049c",
             "script": 7080,
             "direction": "DIR_DOWN",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 26,
-                "z": 7,
+                "x": 186,
+                "z": 327,
                 "y": 0
             }
         },
@@ -334,28 +362,32 @@
             "flag": "EVENT_FLAG_0x0284",
             "script": 2,
             "direction": "DIR_LEFT",
-            "params": [ 0, 0, 0 ],
+            "params": [
+                0,
+                0,
+                0
+            ],
             "area": {
                 "width": 0,
                 "height": 0
             },
             "grid": {
-                "x": 25,
-                "z": 25,
+                "x": 185,
+                "z": 345,
                 "y": -65536
             }
         }
     ],
     "warps": [
         {
-            "zone": "ZONE_ROUTE_6",
+            "zone": 65535,
             "warp": 1,
             "unk4": 4,
             "transition": 4,
             "grid": {
-                "x": 24,
+                "x": 2584,
                 "y": 0,
-                "z": 104,
+                "z": 5224,
                 "width": 1,
                 "height": 1,
                 "unk0a": 0
@@ -367,9 +399,9 @@
             "unk4": 3,
             "transition": 2,
             "grid": {
-                "x": 216,
+                "x": 2776,
                 "y": 16,
-                "z": 264,
+                "z": 5384,
                 "width": 1,
                 "height": 1,
                 "unk0a": 0
@@ -381,9 +413,9 @@
             "unk4": 3,
             "transition": 4,
             "grid": {
-                "x": 424,
+                "x": 2984,
                 "y": 65520,
-                "z": 408,
+                "z": 5528,
                 "width": 1,
                 "height": 1,
                 "unk0a": 0
