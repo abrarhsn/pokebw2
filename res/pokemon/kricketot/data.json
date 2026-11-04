@@ -108,7 +108,9 @@
             [ 6, "MOVE_STRUGGLE_BUG" ],
             [ 16, "MOVE_BUG_BITE" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [ "MOVE_BUG_BITE", "MOVE_UPROAR", "MOVE_SNORE", "MOVE_ENDEAVOR" ],
         "egg_moves": []
     },

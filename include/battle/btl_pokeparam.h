@@ -113,7 +113,11 @@ static inline void BattleMonDamageRecord_Init(BattleMonDamageRecord *record, u8 
 // A condition's ID. The CONDITION_* values are #defines in constants/battle.h, which tr_ai.inc includes too. MWCC
 // keeps a local of this type in a register where it folds an integer one into each use, as HandlerChatter's status
 typedef enum {
+#ifdef HEX_STATUS
+    CONDITION_ID_COUNT = 38,
+#else
     CONDITION_ID_COUNT = 36,
+#endif
 } BattleConditionID;
 
 // The first part of a BattleMon, which TransformSet keeps while it copies the rest from the target

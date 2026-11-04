@@ -2,7 +2,7 @@
     "$schema": "../item.schema.json",
     "name": "TM95",
     "name_plural": "TM95s",
-    "description": "The user yells as if it is ranting about\nsomething, making the target's Sp. Atk\nstat decrease.",
+    "description": "A ghostly cannon blast always leaves\nthe target hexed, halving its\nSp. Atk until it faints or is healed.",
     "price": 1000,
     "hold_effect": "HOLD_EFFECT_NONE",
     "hold_param": 0,

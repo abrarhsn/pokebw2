@@ -396,6 +396,9 @@ BattleCondition BtlCalc_MakeStatusCondition(u32 status) {
     case CONDITION_FREEZE:
     case CONDITION_BURN:
     case CONDITION_POISON:
+#ifdef HEX_STATUS
+    case CONDITION_HEX:
+#endif
         condition.common.type = BTL_CONDITION_TYPE_PERMANENT;
         break;
     case CONDITION_SLEEP:
@@ -410,6 +413,11 @@ BattleCondition BtlCalc_MakeStatusCondition(u32 status) {
 }
 
 BOOL IsBasicStatus(s32 condition) {
+#ifdef HEX_STATUS
+    if (condition == CONDITION_HEX) {
+        return TRUE;
+    }
+#endif
     if (condition < 6) {
         return TRUE;
     }

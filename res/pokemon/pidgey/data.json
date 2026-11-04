@@ -138,6 +138,7 @@
             "TM88",
             "TM89",
             "TM90",
+            "TM95",
             "HM02"
         ],
         "by_tutor": [ "MOVE_UPROAR", "MOVE_SNORE", "MOVE_HEAT_WAVE", "MOVE_TAILWIND", "MOVE_ROOST", "MOVE_SLEEP_TALK" ],

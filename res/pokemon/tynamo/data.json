@@ -62,7 +62,9 @@
             [ 1, "MOVE_SPARK" ],
             [ 1, "MOVE_CHARGE_BEAM" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [ "MOVE_MAGNET_RISE" ],
         "egg_moves": []
     },

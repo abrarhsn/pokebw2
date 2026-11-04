@@ -107,7 +107,9 @@
             [ 1, "MOVE_STRING_SHOT" ],
             [ 15, "MOVE_BUG_BITE" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [ "MOVE_BUG_BITE", "MOVE_ELECTROWEB" ],
         "egg_moves": []
     },

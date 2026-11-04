@@ -1,7 +1,9 @@
 #include "app/pokelist.h"
+#include "constants/items.h"
 #include "dsprot/dsprot.h"
 #include "gfl/heap.h"
 #include "gfl/proc.h"
+#include "save/bag.h"
 
 // The party list's proc. The ROM doesn't name this file: it is named for the proc, which runs the list that
 // plist_sys.c sets up, updates and frees
@@ -29,6 +31,12 @@ static BOOL PokeListProc_Init(GameProc *proc, u32 *state, void *param, void *wor
         wk = GFL_ProcInitSubsystem(proc, sizeof(PokeListWork), HEAPID_POKELIST);
         wk->heapId = HEAPID_POKELIST;
         wk->param = param;
+#ifdef HEX_STATUS
+        // The player always has TM95, Hex Cannon, which any Pokémon learns
+        if (wk->param->bag != NULL && BagSave_GetItemCountByID(wk->param->bag, ITEM_TM95, wk->heapId) == 0) {
+            BagSave_AddItem(wk->param->bag, ITEM_TM95, 1, wk->heapId);
+        }
+#endif
         *state = 1;
     case 1:
         if (PokeList_Init(wk) == TRUE) {

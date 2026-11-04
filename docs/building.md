@@ -67,6 +67,12 @@ of downloading a binary. To use your own build, pass `--dsd PATH` or copy it to 
   so fixes in incomplete files do not apply yet.
 - `python3 configure.py --shift 0x100` moves the code to test changes in code size. See
   [Shifting](configs.md#shifting).
+- `python3 configure.py w2_us --hex` adds the Hex status and the move Hex Cannon (`HEX_STATUS`) and writes ROMs ending
+  in `-hex.nds`. Hex halves Special Attack, only Hex Cannon inflicts it, and only fainting or a Pokémon Center cures it.
+  Hex Cannon is TM95 in place of Snarl, every species learns it, and opening the party menu gives the player one if the bag has none.
+  The code is guarded, but the move, its text and the learnsets are in the data, so the ROMs of every build differ from
+  the original. Main can't change in size in this build (the ARM9 secure area would need the ARM7 BIOS), and neither can
+  overlay 287, so the battle party list shows no icon for Hex.
 
 Run `ninja` after configuring. These builds skip the matching checks. Configure again without the option to restore
 the standard matching build.

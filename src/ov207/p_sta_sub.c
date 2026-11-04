@@ -10,6 +10,7 @@
 #include "pml/personal.h"
 #include "pml/poke_party.h"
 #include "system/app_menu_common.h"
+#include "system/app_menu_common_hex.h"
 
 // The bottom screen of the summary screen: the Pokémon's sprite, which turns around when touched and bounces, hops or
 // spins after a swipe or a circle drawn on it, its name, level, held item, ball, markings and status. The names of the
@@ -379,7 +380,7 @@ void PStaSub_Draw(PStatusWork *wk, PStaSubWork *sub) {
     }
 
     if ((u8)GetStatusCond(pkm) != 0) {
-        ClActor_SetSequence(sub->statusIcon, AppMenuCommon_GetStatusIcon(pkm));
+        ClActor_SetSequence(sub->statusIcon, APP_MENU_STATUS_ICON(pkm));
         ClActor_SetVisible(sub->statusIcon, TRUE);
         ClActor_SetVisible(sub->pokerusIcon, FALSE);
     } else {

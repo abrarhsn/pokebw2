@@ -1,4 +1,5 @@
 #include "app/pokelist.h"
+#include "constants/battle.h"
 #include "constants/pokemon.h"
 #include "constants/species.h"
 #include "gfl/heap.h"
@@ -6,6 +7,13 @@
 #include "pml/move.h"
 #include "pml/personal.h"
 #include "pml/poke_party.h"
+
+// Whether the items that cure a status work on it: Hex is only cured by fainting or healing at a Pokémon Center
+#ifdef HEX_STATUS
+#define CAN_CURE_STATUS(status) ((status) != CONDITION_HEX)
+#else
+#define CAN_CURE_STATUS(status) 1
+#endif
 
 // What an item from the bag does to a Pokémon: whether it can be used, and using it. The ROM doesn't name this file;
 // the name is a guess, after the file that does this in HeartGold and SoulSilver
@@ -251,23 +259,23 @@ BOOL StatusRcv_UseItem(PartyPkm *pkm, u16 item, u16 pos, u16 zoneId, u32 heapId)
     hasEffect = FALSE;
     status = PokeParty_GetParam(pkm, PKM_PARAM_STATUS, NULL);
     newStatus = status;
-    if (PML_ItemGetParam(data, 18) != 0) {
+    if (PML_ItemGetParam(data, 18) != 0 && CAN_CURE_STATUS(status)) {
         newStatus = 0;
         hasEffect = TRUE;
     }
-    if (PML_ItemGetParam(data, 19) != 0) {
+    if (PML_ItemGetParam(data, 19) != 0 && CAN_CURE_STATUS(status)) {
         newStatus = 0;
         hasEffect = TRUE;
     }
-    if (PML_ItemGetParam(data, 20) != 0) {
+    if (PML_ItemGetParam(data, 20) != 0 && CAN_CURE_STATUS(status)) {
         newStatus = 0;
         hasEffect = TRUE;
     }
-    if (PML_ItemGetParam(data, 21) != 0) {
+    if (PML_ItemGetParam(data, 21) != 0 && CAN_CURE_STATUS(status)) {
         newStatus = 0;
         hasEffect = TRUE;
     }
-    if (PML_ItemGetParam(data, 22) != 0) {
+    if (PML_ItemGetParam(data, 22) != 0 && CAN_CURE_STATUS(status)) {
         newStatus = 0;
         hasEffect = TRUE;
     }

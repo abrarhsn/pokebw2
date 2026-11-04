@@ -9,6 +9,12 @@
 #include "constants/moves.h"
 #include "constants/types.h"
 
+#ifdef HEX_STATUS
+// The first of the three messages in the system text bank 18 that say a Pokémon was hexed, for its own, a wild and a
+// foe's Pokémon, after the bank's original 1159 messages
+#define HEX_MESSAGE_HEXED 1159
+#endif
+
 // The message of a condition that ended: the one by default and the one with a second form, as negative when the
 // condition has none
 typedef struct ConditionCureMessage {
@@ -350,6 +356,11 @@ static s32 GetConditionAddMessage(s32 condition, BattleCondition value) {
     case CONDITION_BURN:
         message = 0xff;
         break;
+#ifdef HEX_STATUS
+    case CONDITION_HEX:
+        message = HEX_MESSAGE_HEXED;
+        break;
+#endif
     case CONDITION_PARALYSIS:
         message = 0x111;
         break;

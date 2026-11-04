@@ -101,7 +101,8 @@
             "TM84",
             "TM87",
             "TM90",
-            "TM91"
+            "TM91",
+            "TM95"
         ],
         "by_tutor": [
             "MOVE_SIGNAL_BEAM",

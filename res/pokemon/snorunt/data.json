@@ -137,7 +137,8 @@
             "TM70",
             "TM79",
             "TM87",
-            "TM90"
+            "TM90",
+            "TM95"
         ],
         "by_tutor": [ "MOVE_BLOCK", "MOVE_ICY_WIND", "MOVE_SNORE", "MOVE_SPITE", "MOVE_SLEEP_TALK" ],
         "egg_moves": [

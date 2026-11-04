@@ -107,7 +107,9 @@
             [ 15, "MOVE_TACKLE" ],
             [ 30, "MOVE_FLAIL" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [ "MOVE_BOUNCE" ],
         "egg_moves": []
     },

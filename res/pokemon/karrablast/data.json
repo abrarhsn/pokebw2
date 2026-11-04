@@ -94,6 +94,7 @@
             "TM84",
             "TM87",
             "TM90",
+            "TM95",
             "HM01"
         ],
         "by_tutor": [ "MOVE_BUG_BITE", "MOVE_IRON_DEFENSE", "MOVE_SNORE", "MOVE_KNOCK_OFF", "MOVE_GIGA_DRAIN", "MOVE_SLEEP_TALK" ],

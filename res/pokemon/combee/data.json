@@ -108,7 +108,9 @@
             [ 13, "MOVE_BUG_BITE" ],
             [ 29, "MOVE_BUG_BUZZ" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [ "MOVE_BUG_BITE", "MOVE_SNORE", "MOVE_TAILWIND", "MOVE_ENDEAVOR" ],
         "egg_moves": []
     },

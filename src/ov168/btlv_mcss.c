@@ -367,6 +367,16 @@ void BtlvMcss_Main(BtlvMcss *work) {
                 BtlvMcss_SetAnimPause(work, pos, 3);
                 work->entries[index].statusAnim = TRUE;
                 break;
+#ifdef HEX_STATUS
+            case BTLV_GAUGE_STATUS_HEX:
+                if (step == TRUE) {
+                    BtlvMcss_SetPaletteBlend(work, pos, work->entries[index].statusEvy, GX_RGB(24, 0, 31));
+                }
+                BtlvMcss_SetAnimStop(work, pos, 4);
+                BtlvMcss_SetAnimPause(work, pos, 3);
+                work->entries[index].statusAnim = TRUE;
+                break;
+#endif
             case BTLV_GAUGE_STATUS_NONE:
             default:
                 if (work->entries[index].statusAnim == TRUE) {

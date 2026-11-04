@@ -242,7 +242,9 @@
         "by_level": [
             [ 1, "MOVE_HIDDEN_POWER" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [],
         "egg_moves": []
     },

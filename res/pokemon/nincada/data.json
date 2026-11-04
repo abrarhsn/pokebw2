@@ -137,6 +137,7 @@
             "TM81",
             "TM87",
             "TM90",
+            "TM95",
             "HM01"
         ],
         "by_tutor": [ "MOVE_BUG_BITE", "MOVE_SNORE", "MOVE_GIGA_DRAIN", "MOVE_SPITE", "MOVE_SLEEP_TALK" ],

@@ -1256,6 +1256,11 @@ u32 GetBattleMonStatus(BattleMon *mon) {
             return i;
         }
     }
+#ifdef HEX_STATUS
+    if (mon->core.conditions[CONDITION_HEX].common.type != BTL_CONDITION_TYPE_NONE) {
+        return CONDITION_HEX;
+    }
+#endif
     return 0;
 }
 

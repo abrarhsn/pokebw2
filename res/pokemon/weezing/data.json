@@ -152,7 +152,8 @@
             "TM70",
             "TM74",
             "TM87",
-            "TM90"
+            "TM90",
+            "TM95"
         ],
         "by_tutor": [ "MOVE_UPROAR", "MOVE_DARK_PULSE", "MOVE_SNORE", "MOVE_PAIN_SPLIT", "MOVE_SPITE", "MOVE_SLEEP_TALK" ],
         "egg_moves": []

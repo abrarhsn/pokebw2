@@ -25,6 +25,11 @@ typedef enum {
 #define BTLV_GAUGE_STATUS_POISON 4
 #define BTLV_GAUGE_STATUS_BURN 5
 #define BTLV_GAUGE_STATUS_NONE 8
+#ifdef HEX_STATUS
+// Hex: the gauge shows the poison icon, as the icon sheet has no purple one, and the Pokémon's sprite pulses bright
+// purple
+#define BTLV_GAUGE_STATUS_HEX 9
+#endif
 
 // studioMode is BTL_STUDIO_MODE_*: a movie's playback shows no gauges and only keeps the statuses
 BtlvGauge *BtlvGauge_Create(Font *font, u32 studioMode, HeapID heapId);

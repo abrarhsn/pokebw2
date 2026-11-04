@@ -114,7 +114,9 @@
             [ 81, "MOVE_SKETCH" ],
             [ 91, "MOVE_SKETCH" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [],
         "egg_moves": []
     },

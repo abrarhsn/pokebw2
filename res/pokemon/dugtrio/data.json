@@ -153,6 +153,7 @@
             "TM87",
             "TM90",
             "TM94",
+            "TM95",
             "HM01"
         ],
         "by_tutor": [ "MOVE_UPROAR", "MOVE_EARTH_POWER", "MOVE_SNORE", "MOVE_STEALTH_ROCK", "MOVE_SLEEP_TALK" ],

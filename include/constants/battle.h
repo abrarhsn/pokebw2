@@ -194,5 +194,8 @@
 #define CONDITION_AQUA_RING 35
 // Any major status condition, which Natural Cure, Shed Skin and Hydration cure
 #define CONDITION_ANY_STATUS 36
+// Hex: a major status that only Hex Cannon inflicts. It halves the Pokémon's Special Attack, and only fainting or
+// healing at a Pokémon Center ends it
+#define CONDITION_HEX 37
 
 #endif // POKEBW2_CONSTANTS_BATTLE_H

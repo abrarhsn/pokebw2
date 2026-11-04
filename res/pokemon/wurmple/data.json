@@ -108,7 +108,9 @@
             [ 5, "MOVE_POISON_STING" ],
             [ 15, "MOVE_BUG_BITE" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [ "MOVE_BUG_BITE", "MOVE_ELECTROWEB", "MOVE_SNORE" ],
         "egg_moves": []
     },

@@ -105,7 +105,9 @@
         "by_level": [
             [ 1, "MOVE_TRANSFORM" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [],
         "egg_moves": []
     },

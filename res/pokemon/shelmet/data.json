@@ -90,7 +90,8 @@
             "TM53",
             "TM76",
             "TM87",
-            "TM90"
+            "TM90",
+            "TM95"
         ],
         "by_tutor": [ "MOVE_BUG_BITE", "MOVE_SIGNAL_BEAM", "MOVE_SNORE", "MOVE_GIGA_DRAIN", "MOVE_GASTRO_ACID", "MOVE_SLEEP_TALK" ],
         "egg_moves": [

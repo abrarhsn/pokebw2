@@ -103,7 +103,9 @@
     "weight": 0,
     "learnset": {
         "by_level": [],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": []
     },
     "evolutions": [],

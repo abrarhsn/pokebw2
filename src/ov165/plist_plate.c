@@ -1,5 +1,6 @@
 #include "app/pokelist.h"
 #include "battle/regulation.h"
+#include "constants/battle.h"
 #include "constants/pokemon.h"
 #include "constants/species.h"
 #include "field/musical.h"
@@ -319,6 +320,11 @@ static void PokeListPlate_DrawInfo(PokeListWork *wk, PokeListPlate *plate, BOOL 
                 case 5:
                     ClActor_SetSequence(plate->statusIcon, 4);
                     break;
+#ifdef HEX_STATUS
+                case CONDITION_HEX:
+                    ClActor_SetSequence(plate->statusIcon, 4);
+                    break;
+#endif
                 }
             }
             ClActor_SetVisible(plate->statusIcon, TRUE);

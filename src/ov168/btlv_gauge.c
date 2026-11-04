@@ -1367,6 +1367,16 @@ void BtlvGauge_SetStatus(BtlvGauge *gauge, u32 status, int index) {
         7,
     };
 
+#ifdef HEX_STATUS
+    if (status == CONDITION_HEX) {
+        gauge->entries[index].mon.status = BTLV_GAUGE_STATUS_HEX;
+        if (gauge->studioMode != BTL_STUDIO_MODE_PLAYBACK && gauge->entries[index].statusActor != NULL) {
+            ClActor_SetVisible(gauge->entries[index].statusActor, TRUE);
+            ClActor_SetSequence(gauge->entries[index].statusActor, BTLV_GAUGE_STATUS_POISON);
+        }
+        return;
+    }
+#endif
     if (gauge->studioMode == BTL_STUDIO_MODE_PLAYBACK) {
         gauge->entries[index].mon.status = sequences[status];
         return;

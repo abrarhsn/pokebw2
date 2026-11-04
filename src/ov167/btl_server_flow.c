@@ -38,6 +38,14 @@
 #include "system/comm_player_support.h"
 #include "system/game_beacon.h"
 
+// The conditions that are a Pokémon's one major status, which show an icon on its gauge. Hex is the one that has an ID
+// past the others
+#ifdef HEX_STATUS
+#define IS_MAJOR_STATUS(condition) IsBasicStatus(condition)
+#else
+#define IS_MAJOR_STATUS(condition) ((condition) < CONDITION_CONFUSION)
+#endif
+
 s32 ConvertConditionCode(BattleMon *mon, s32 *condition);
 
 // The targets hit by one strike of a damaging move, as ServerControl_DamageListCore works through them
@@ -3686,6 +3694,12 @@ BOOL ServerEvent_CalcDamage(BtlServerFlow *flow, BattleMon *attacker, BattleMon 
             GetBattleMonStat(attacker, BATTLEMON_EFFECTIVE_ABILITY) != ABILITY_GUTS) {
             value = value * 50 / 100;
         }
+#ifdef HEX_STATUS
+        // Hex halves the Special Attack of its Pokémon in the same way that a burn halves the Attack
+        if (category == MOVE_CATEGORY_SPECIAL && GetBattleMonStatus(attacker) == CONDITION_HEX) {
+            value = value * 50 / 100;
+        }
+#endif
         if (value == 0) {
             value = 1;
         }
@@ -4001,7 +4015,7 @@ u32 AddConditionCheckFailOverwrite(BtlServerFlow *flow, BattleMon *mon, s32 cond
     if (CheckCondition(mon, condition) && overwrite != 2) {
         return 1;
     }
-    if (condition < 6 && GetBattleMonStatus(mon) != 0 && overwrite == 0) {
+    if (IS_MAJOR_STATUS(condition) && GetBattleMonStatus(mon) != 0 && overwrite == 0) {
         return 3;
     }
     if (ServerEvent_GetWeather(flow) == BTL_WEATHER_SUN && condition == CONDITION_FREEZE) {
@@ -4044,6 +4058,11 @@ void ServerControl_AddCondition(BtlServerFlow *flow, BattleMon *target, BattleMo
     case CONDITION_BURN:
         ServerDisplay_AddEffectAtPosition(flow, target, 0x258);
         break;
+#ifdef HEX_STATUS
+    case CONDITION_HEX:
+        ServerDisplay_AddEffectAtPosition(flow, target, 0x257);
+        break;
+#endif
     case CONDITION_PARALYSIS:
         ServerDisplay_AddEffectAtPosition(flow, target, 0x25a);
         break;
@@ -5687,6 +5706,12 @@ s32 ConvertConditionCode(BattleMon *mon, s32 *condition) {
     s32 result = 0;
     u32 status = GetBattleMonStatus(mon);
 
+#ifdef HEX_STATUS
+    // No ability, item or move that cures any status cures Hex
+    if (status == CONDITION_HEX) {
+        status = 0;
+    }
+#endif
     switch (*condition) {
     case CONDITION_NONE:
         break;
@@ -5923,7 +5948,7 @@ void ServerDisplay_AddCondition(BtlServerFlow *flow, BattleMon *mon, s32 conditi
     SetMoveCondition(mon, condition, value);
     BtlServerCmdQueue_Put(flow->queue, SC_OP_SET_CONDITION, monId, (u8)condition, value);
     // The major status conditions show an icon, and a bad poisoning has its own after the last of them
-    if (condition < CONDITION_CONFUSION) {
+    if (IS_MAJOR_STATUS(condition)) {
         if (condition == CONDITION_POISON && Condition_IsBadlyPoisoned(value)) {
             condition = CONDITION_POISON + 1;
         }

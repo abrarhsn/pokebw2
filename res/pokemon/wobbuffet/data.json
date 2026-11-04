@@ -108,7 +108,9 @@
             [ 1, "MOVE_SAFEGUARD" ],
             [ 1, "MOVE_DESTINY_BOND" ]
         ],
-        "by_tm": [],
+        "by_tm": [
+            "TM95"
+        ],
         "by_tutor": [],
         "egg_moves": []
     },

@@ -138,7 +138,14 @@ static const u16 TM_MOVE_LIST[] = {
     MOVE_FROST_BREATH, MOVE_ROCK_SLIDE,  MOVE_X_SCISSOR,    MOVE_DRAGON_TAIL,  MOVE_WORK_UP,      MOVE_POISON_JAB,
     MOVE_DREAM_EATER,  MOVE_GRASS_KNOT,  MOVE_SWAGGER,      MOVE_PLUCK,        MOVE_U_TURN,       MOVE_SUBSTITUTE,
     MOVE_FLASH_CANNON, MOVE_TRICK_ROOM,  MOVE_CUT,          MOVE_FLY,          MOVE_SURF,         MOVE_STRENGTH,
-    MOVE_WATERFALL,    MOVE_DIVE,        MOVE_WILD_CHARGE,  MOVE_ROCK_SMASH,   MOVE_SNARL,        MOVE_NONE,
+    MOVE_WATERFALL,    MOVE_DIVE,        MOVE_WILD_CHARGE,  MOVE_ROCK_SMASH,
+#ifdef HEX_STATUS
+    // TM95 teaches Hex Cannon in place of Snarl
+    MOVE_HEX_CANNON,
+#else
+    MOVE_SNARL,
+#endif
+    MOVE_NONE,
 };
 
 // Each item's icon: characters and palette

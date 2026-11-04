@@ -149,7 +149,8 @@
             "TM74",
             "TM87",
             "TM90",
-            "TM93"
+            "TM93",
+            "TM95"
         ],
         "by_tutor": [ "MOVE_SIGNAL_BEAM", "MOVE_MAGIC_COAT", "MOVE_FOUL_PLAY", "MOVE_MAGNET_RISE", "MOVE_SNORE", "MOVE_SLEEP_TALK" ],
         "egg_moves": []

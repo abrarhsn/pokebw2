@@ -1157,4 +1157,7 @@ Bank0018_Text_CompletelySynchronizedFoes = It is completely synchronized\nwith t
 Bank0018_Text_HurtBySeaFire = {0102:0} is hurt\nby the sea of fire!
 Bank0018_Text_WildHurtBySea = The wild {0102:0} is hurt\nby the sea of fire!
 Bank0018_Text_FoesHurtBySea = The foe's {0102:0} is hurt\nby the sea of fire!
+Bank0018_Text_Hexed = {0102:0} was hexed!
+Bank0018_Text_WildHexed = The wild {0102:0}\nwas hexed!
+Bank0018_Text_FoesHexed = The foe's {0102:0}\nwas hexed!
 \pad{54}
